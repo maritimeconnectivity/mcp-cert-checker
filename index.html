@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="utf-8" />
+        <title>MCP Certificate Checker</title>
+    </head>
+    <body>
+        <div class="container">
+            <div class="row">
+                <div class="col-sm">
+                    <form>
+                        <div class="form-group">
+                            <label for="certTextArea">Paste PEM encoded certificate here</label>
+                            <textarea class="form-control" id="certTextArea" rows="10" cols="50"></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label for="certFileUploader">Or upload a file containing a PEM encoded certificate here</label>
+                            <input type="file" class="form-control" id="certFileUploader">
+                        </div>
+                    </form>
+                </div>
+                <div class="col-sm">
+                    <form>
+                        <div class="form-group">
+                            <label for="subCaCertTextArea">Paste PEM encoded intermediate CA certificate here</label>
+                            <textarea class="form-control" id="subCaCertTextArea" rows="10" cols="50"></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label for="certSubCaFileUploader">Or upload a file containing a PEM encoded intermediate CA certificate here</label>
+                            <input type="file" class="form-control" id="certSubCaFileUploader">
+                        </div>
+                    </form>
+                </div>
+                <div class="col-sm">
+                    <form>
+                        <div class="form-group">
+                            <label for="caCertTextArea">Paste PEM encoded intermediate CA certificate here</label>
+                            <textarea class="form-control" id="caCertTextArea" rows="10" cols="50"></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label for="certCaFileUploader">Or upload a file containing a PEM encoded intermediate CA certificate here</label>
+                            <input type="file" class="form-control" id="certCaFileUploader">
+                        </div>
+                    </form>
+                </div>
+                <button type="submit" class="btn btn-primary" id="submitBtn">Submit</button>
+            </div>
+        </div>
+        <div class="container">
+            <div class="row">
+
+            </div>
+        </div>
+    </body>
+</html>
