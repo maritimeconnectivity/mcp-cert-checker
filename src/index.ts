@@ -1,9 +1,11 @@
 import 'bootstrap';
 import 'bootstrap/dist/css/bootstrap.min.css';
-import {fromBER} from "asn1js";
+import Asn1js, {fromBER} from "asn1js";
 import Certificate from "pkijs/src/Certificate";
 import CertificateChainValidationEngine from "pkijs/src/CertificateChainValidationEngine";
 import OCSPRequest from "pkijs/src/OCSPRequest";
+import InfoAccess from "pkijs/src/InfoAccess";
+import OCSPResponse from "pkijs/src/OCSPResponse";
 
 const certFileUploader: HTMLInputElement = document.getElementById('certFileUploader') as HTMLInputElement;
 const subCaFileUploader: HTMLInputElement = document.getElementById('subCaCertFileUploader') as HTMLInputElement;
@@ -65,13 +67,11 @@ caFileUploader.addEventListener("input", async () => {
 
 submitButton.addEventListener("click", () => {
     const parsedCerts: Array<Certificate> = certs.map(c => parseCertificate(c));
-    console.log(parsedCerts);
     const validationEngine: CertificateChainValidationEngine = new CertificateChainValidationEngine(
         {
             certs: parsedCerts.slice(0, parsedCerts.length - 1),
             trustedCerts: [parsedCerts[parsedCerts.length - 1]]
         });
-    console.log(validationEngine);
     validationEngine.verify().then(r => {
         if (r?.result) {
             alert("The trust chain was successfully verified!");
@@ -86,7 +86,23 @@ checkOCSPButton.addEventListener("click", async () => {
     const ocspReq: OCSPRequest = new OCSPRequest();
 
     await ocspReq.createForCertificate(parsedCerts[0], {hashAlgorithm: "SHA-384", issuerCertificate: parsedCerts[1]});
-    console.log(ocspReq);
+    const ocsp = ocspReq.toSchema(true) as Asn1js.Sequence;
+    const tmp = parsedCerts[0].extensions.filter(e => e.extnID === "1.3.6.1.5.5.7.1.1")[0].parsedValue as InfoAccess;
+    const ocspUrl = tmp.accessDescriptions[0].accessLocation.value;
+    const response = await fetch(ocspUrl, {
+        method: 'POST',
+        mode: "cors",
+        cache: "no-cache",
+        headers: {
+            'Content-Type': 'application/ocsp-request'
+        },
+        body: ocsp.toBER()
+    });
+    const rawOcspResponse = await (await response.blob()).arrayBuffer();
+    const asn1 = fromBER(rawOcspResponse);
+    const ocspResponse = new OCSPResponse({schema: asn1.result});
+    const status = await ocspResponse.getCertificateStatus(parsedCerts[0], parsedCerts[1]);
+    console.log(status);
 });
 
 clearButton.addEventListener("click", () => {
