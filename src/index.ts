@@ -102,7 +102,20 @@ checkOCSPButton.addEventListener("click", async () => {
     const asn1 = fromBER(rawOcspResponse);
     const ocspResponse = new OCSPResponse({schema: asn1.result});
     const status = await ocspResponse.getCertificateStatus(parsedCerts[0], parsedCerts[1]);
-    console.log(status);
+
+    let message;
+    switch (status.status) {
+        case 0:
+            message = 'The certificate is valid.';
+            break;
+        case 1:
+            message = 'The certificate has been revoked.';
+            break;
+        case 2:
+            message = 'The revocation status of the certificate could not be determined.';
+            break;
+    }
+    alert(message);
 });
 
 clearButton.addEventListener("click", () => {
