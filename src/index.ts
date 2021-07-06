@@ -14,6 +14,8 @@ interface Asn1Struct {
     result: LocalBaseBlock
 }
 
+const mcpMrnRegex: RegExp = /urn:mrn:mcp:(device|org|user|vessel|service|mms):([a-z0-9]([a-z0-9]|-){0,20}[a-z0-9]):((([-._a-z0-9]|~)|%[0-9a-f][0-9a-f]|([!$&'()*+,;=])|:|@)((([-._a-z0-9]|~)|%[0-9a-f][0-9a-f]|([!$&'()*+,;=])|:|@)|\/)*)/g;
+
 const certFileUploader: HTMLInputElement = document.getElementById('certFileUploader') as HTMLInputElement;
 const subCaFileUploader: HTMLInputElement = document.getElementById('subCaCertFileUploader') as HTMLInputElement;
 const caFileUploader: HTMLInputElement = document.getElementById('caCertFileUploader') as HTMLInputElement;
@@ -91,6 +93,10 @@ submitButton.addEventListener("click", async () => {
             alert("The trust chain could not be verified!");
         }
     }, () => alert("This was bad!"));
+    const cert = parsedCerts[0];
+    console.log(cert);
+    if (validateCertContent(cert))
+        console.log("Good!");
 });
 
 checkOCSPButton.addEventListener("click", async () => {
@@ -143,7 +149,7 @@ function parsePem(input: string): Asn1Struct {
 
 function parseCertificate(pemCert: string): Certificate {
     const asn1 = parsePem(pemCert);
-    return new Certificate({schema: asn1.result});
+    return new Certificate({ schema: asn1.result });
 }
 
 function extractCerts(pemCerts: string): void {
@@ -157,7 +163,7 @@ function extractCerts(pemCerts: string): void {
 async function getOCSP(certificate: Certificate, issuerCertificate: Certificate): Promise<OCSPResponse> {
     const ocspReq: OCSPRequest = new OCSPRequest();
 
-    await ocspReq.createForCertificate(certificate, {hashAlgorithm: "SHA-384", issuerCertificate: issuerCertificate});
+    await ocspReq.createForCertificate(certificate, { hashAlgorithm: "SHA-384", issuerCertificate: issuerCertificate} );
     const ocsp = ocspReq.toSchema(true) as Asn1js.Sequence;
     const tmp = certificate.extensions.filter(e => e.extnID === "1.3.6.1.5.5.7.1.1")[0].parsedValue as InfoAccess;
     const ocspUrl = tmp.accessDescriptions[0].accessLocation.value;
@@ -172,7 +178,7 @@ async function getOCSP(certificate: Certificate, issuerCertificate: Certificate)
     });
     const rawOcspResponse = await (await response.blob()).arrayBuffer();
     const asn1 = fromBER(rawOcspResponse);
-    return new OCSPResponse({schema: asn1.result});
+    return new OCSPResponse({ schema: asn1.result });
 }
 
 async function getCRL(certificate: Certificate): Promise<CertificateRevocationList> {
@@ -186,4 +192,16 @@ async function getCRL(certificate: Certificate): Promise<CertificateRevocationLi
     const crlString = await response.text();
     const crlAsn1 = parsePem(crlString);
     return new CertificateRevocationList({schema: crlAsn1.result});
+}
+
+function validateCertContent(cert: Certificate): boolean {
+    const mcpMrn: string = cert.subject.typesAndValues.filter(v => v.type as unknown === "2.5.4.10")[0].value.valueBlock.value;
+    if (!validateMcpMrnSyntax(mcpMrn))
+        return false;
+    console.log(mcpMrn);
+    return true;
+}
+
+function validateMcpMrnSyntax(mrn: string): boolean {
+    return mcpMrnRegex.test(mrn);
 }
