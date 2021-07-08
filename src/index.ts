@@ -9,13 +9,14 @@ import OCSPResponse from "pkijs/src/OCSPResponse";
 import CRLDistributionPoints from "pkijs/src/CRLDistributionPoints";
 import CertificateRevocationList from "pkijs/src/CertificateRevocationList";
 import AttributeTypeAndValue from "pkijs/src/AttributeTypeAndValue";
+import AltName from "pkijs/src/AltName";
 
 interface Asn1Struct {
     offset: number,
     result: LocalBaseBlock
 }
 
-const mcpMrnRegex: RegExp = /urn:mrn:mcp:(device|org|user|vessel|service|mms):([a-z0-9]([a-z0-9]|-){0,20}[a-z0-9]):((([-._a-z0-9]|~)|%[0-9a-f][0-9a-f]|([!$&'()*+,;=])|:|@)((([-._a-z0-9]|~)|%[0-9a-f][0-9a-f]|([!$&'()*+,;=])|:|@)|\/)*)/g;
+const mcpMrnRegex: RegExp = /urn:mrn:mcp:(device|org|user|vessel|service|mms):([a-z0-9]([a-z0-9]|-){0,20}[a-z0-9]):((([-._a-z0-9]|~)|%[0-9a-f][0-9a-f]|([!$&'()*+,;=])|:|@)((([-._a-z0-9]|~)|%[0-9a-f][0-9a-f]|([!$&'()*+,;=])|:|@)|\/)*)/;
 const mcpTypes: Array<string> = ["device", "org", "user", "vessel", "service", "mms"];
 
 const certFileUploader: HTMLInputElement = document.getElementById('certFileUploader') as HTMLInputElement;
@@ -23,6 +24,7 @@ const subCaFileUploader: HTMLInputElement = document.getElementById('subCaCertFi
 const caFileUploader: HTMLInputElement = document.getElementById('caCertFileUploader') as HTMLInputElement;
 
 const submitButton: HTMLButtonElement = document.getElementById('submitBtn') as HTMLButtonElement;
+const contentCheckButton: HTMLButtonElement = document.getElementById('contentCheckBtn') as HTMLButtonElement;
 const checkOCSPButton: HTMLButtonElement = document.getElementById('ocspBtn') as HTMLButtonElement;
 const clearButton: HTMLButtonElement = document.getElementById('clearBtn') as HTMLButtonElement;
 const crlButton: HTMLButtonElement = document.getElementById('crlBtn') as HTMLButtonElement;
@@ -101,6 +103,19 @@ submitButton.addEventListener("click", async () => {
         console.log("Good!");
 });
 
+contentCheckButton.addEventListener("click", () => {
+   const cert: Certificate = parseCertificate(certs[0]);
+   if (cert) {
+       if (!validateCertContent(cert)) {
+           alert("Certificate content could not be validated.");
+       } else {
+           alert("Certificate content was validated successfully.");
+       }
+   } else {
+       alert("No certificate was found");
+   }
+});
+
 checkOCSPButton.addEventListener("click", async () => {
     const parsedCerts: Array<Certificate> = certs.map(parseCertificate);
 
@@ -167,7 +182,7 @@ async function getOCSP(certificate: Certificate, issuerCertificate: Certificate)
 
     await ocspReq.createForCertificate(certificate, { hashAlgorithm: "SHA-384", issuerCertificate: issuerCertificate} );
     const ocsp = ocspReq.toSchema(true) as Asn1js.Sequence;
-    const tmp = certificate.extensions.filter(e => e.extnID === "1.3.6.1.5.5.7.1.1")[0].parsedValue as InfoAccess;
+    const tmp = certificate.extensions.find(e => e.extnID === "1.3.6.1.5.5.7.1.1").parsedValue as InfoAccess;
     const ocspUrl = tmp.accessDescriptions[0].accessLocation.value;
     const response = await fetch(ocspUrl, {
         method: 'POST',
@@ -184,7 +199,7 @@ async function getOCSP(certificate: Certificate, issuerCertificate: Certificate)
 }
 
 async function getCRL(certificate: Certificate): Promise<CertificateRevocationList> {
-    const crlExt = certificate.extensions.filter(e => e.extnID === '2.5.29.31')[0].parsedValue as CRLDistributionPoints;
+    const crlExt = certificate.extensions.find(e => e.extnID === '2.5.29.31').parsedValue as CRLDistributionPoints;
     const crlUrl = crlExt.distributionPoints[0].distributionPoint[0].value as string;
 
     const response = await fetch(crlUrl, {
@@ -198,16 +213,30 @@ async function getCRL(certificate: Certificate): Promise<CertificateRevocationLi
 
 function validateCertContent(cert: Certificate): boolean {
     const subject: AttributeTypeAndValue[] = cert.subject.typesAndValues;
-    const mcpMrn: string = subject.filter(v => v.type as unknown === "2.5.4.10")[0].value.valueBlock.value;
-    if (!validateMcpMrnSyntax(mcpMrn))
+    const mcpMrn: string = subject.find(v => v.type as unknown === "0.9.2342.19200300.100.1.1").value.valueBlock.value; // UID
+    const orgMcpMrn: string = subject.find(v => v.type as unknown === "2.5.4.10").value.valueBlock.value; // O
+    if (!validateMcpMrnSyntax(mcpMrn) || !validateMcpMrnSyntax(orgMcpMrn))
         return false;
     console.log(mcpMrn);
 
-    const type: string = subject.filter(v => v.type as unknown === "2.5.4.11")[0].value.valueBlock.value;
+    const type: string = subject.find(v => v.type as unknown === "2.5.4.11").value.valueBlock.value; // OU
     if (!mcpTypes.includes(type))
         return false;
 
+    const mrnSplit = mcpMrn.split(':');
+    if (mrnSplit[3] !== type)
+        return false;
 
+    const orgMrnSplit = orgMcpMrn.split(":");
+    if ((mrnSplit[4] !== orgMrnSplit[4]) || (mrnSplit[5] !== orgMrnSplit[5]))
+        return false;
+
+    console.log(cert.extensions);
+    const altName: AltName = cert.extensions.find(e => e.extnID === "2.5.29.17").parsedValue;
+    console.log(altName);
+    // if (type !== "org") {
+    //     const mrn: string = extensions.filter(e => e.extnID === "2.25.271477598449775373676560215839310464283")[0];
+    // }
 
     return true;
 }
