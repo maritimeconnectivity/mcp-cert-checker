@@ -8,6 +8,7 @@ import InfoAccess from "pkijs/src/InfoAccess";
 import OCSPResponse from "pkijs/src/OCSPResponse";
 import CRLDistributionPoints from "pkijs/src/CRLDistributionPoints";
 import CertificateRevocationList from "pkijs/src/CertificateRevocationList";
+import AttributeTypeAndValue from "pkijs/src/AttributeTypeAndValue";
 
 interface Asn1Struct {
     offset: number,
@@ -15,6 +16,7 @@ interface Asn1Struct {
 }
 
 const mcpMrnRegex: RegExp = /urn:mrn:mcp:(device|org|user|vessel|service|mms):([a-z0-9]([a-z0-9]|-){0,20}[a-z0-9]):((([-._a-z0-9]|~)|%[0-9a-f][0-9a-f]|([!$&'()*+,;=])|:|@)((([-._a-z0-9]|~)|%[0-9a-f][0-9a-f]|([!$&'()*+,;=])|:|@)|\/)*)/g;
+const mcpTypes: Array<string> = ["device", "org", "user", "vessel", "service", "mms"];
 
 const certFileUploader: HTMLInputElement = document.getElementById('certFileUploader') as HTMLInputElement;
 const subCaFileUploader: HTMLInputElement = document.getElementById('subCaCertFileUploader') as HTMLInputElement;
@@ -195,10 +197,18 @@ async function getCRL(certificate: Certificate): Promise<CertificateRevocationLi
 }
 
 function validateCertContent(cert: Certificate): boolean {
-    const mcpMrn: string = cert.subject.typesAndValues.filter(v => v.type as unknown === "2.5.4.10")[0].value.valueBlock.value;
+    const subject: AttributeTypeAndValue[] = cert.subject.typesAndValues;
+    const mcpMrn: string = subject.filter(v => v.type as unknown === "2.5.4.10")[0].value.valueBlock.value;
     if (!validateMcpMrnSyntax(mcpMrn))
         return false;
     console.log(mcpMrn);
+
+    const type: string = subject.filter(v => v.type as unknown === "2.5.4.11")[0].value.valueBlock.value;
+    if (!mcpTypes.includes(type))
+        return false;
+
+
+
     return true;
 }
 
