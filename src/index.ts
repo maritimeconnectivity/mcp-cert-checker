@@ -1,6 +1,6 @@
 import 'bootstrap';
 import 'bootstrap/dist/css/bootstrap.min.css';
-import Asn1js, {fromBER, LocalBaseBlock} from "asn1js";
+import Asn1js, {fromBER, LocalBaseBlock, LocalSidValueBlock} from "asn1js";
 import Certificate from "pkijs/src/Certificate";
 import CertificateChainValidationEngine from "pkijs/src/CertificateChainValidationEngine";
 import OCSPRequest from "pkijs/src/OCSPRequest";
@@ -9,11 +9,16 @@ import OCSPResponse from "pkijs/src/OCSPResponse";
 import CRLDistributionPoints from "pkijs/src/CRLDistributionPoints";
 import CertificateRevocationList from "pkijs/src/CertificateRevocationList";
 import AttributeTypeAndValue from "pkijs/src/AttributeTypeAndValue";
-import AltName from "pkijs/src/AltName";
+import GeneralName from "pkijs/src/GeneralName";
 
 interface Asn1Struct {
     offset: number,
     result: LocalBaseBlock
+}
+
+interface McpAltNameAttribute {
+    oid: string,
+    value: string
 }
 
 const mcpMrnRegex: RegExp = /urn:mrn:mcp:(device|org|user|vessel|service|mms):([a-z0-9]([a-z0-9]|-){0,20}[a-z0-9]):((([-._a-z0-9]|~)|%[0-9a-f][0-9a-f]|([!$&'()*+,;=])|:|@)((([-._a-z0-9]|~)|%[0-9a-f][0-9a-f]|([!$&'()*+,;=])|:|@)|\/)*)/;
@@ -139,7 +144,6 @@ checkOCSPButton.addEventListener("click", async () => {
 
 crlButton.addEventListener("click", async () => {
     const parsedCerts: Array<Certificate> = certs.map(parseCertificate);
-    console.log(parsedCerts);
 
     const crl = await getCRL(parsedCerts[0]);
     if (await crl.verify({issuerCertificate: parsedCerts[1]})) {
@@ -217,7 +221,6 @@ function validateCertContent(cert: Certificate): boolean {
     const orgMcpMrn: string = subject.find(v => v.type as unknown === "2.5.4.10").value.valueBlock.value; // O
     if (!validateMcpMrnSyntax(mcpMrn) || !validateMcpMrnSyntax(orgMcpMrn))
         return false;
-    console.log(mcpMrn);
 
     const type: string = subject.find(v => v.type as unknown === "2.5.4.11").value.valueBlock.value; // OU
     if (!mcpTypes.includes(type))
@@ -231,16 +234,41 @@ function validateCertContent(cert: Certificate): boolean {
     if ((mrnSplit[4] !== orgMrnSplit[4]) || (mrnSplit[5] !== orgMrnSplit[5]))
         return false;
 
-    console.log(cert.extensions);
-    const altName: AltName = cert.extensions.find(e => e.extnID === "2.5.29.17").parsedValue;
-    console.log(altName);
-    // if (type !== "org") {
-    //     const mrn: string = extensions.filter(e => e.extnID === "2.25.271477598449775373676560215839310464283")[0];
-    // }
+    const altNames = cert.extensions.find(e => e.extnID === "2.5.29.17").parsedValue.altNames;
+
+    const mcpAttributes: Array<McpAltNameAttribute> = altNames.map((gn: GeneralName) => {
+        const oid = gn.value.valueBlock.value[0].valueBlock.value;
+        const oidString = oidToString(oid);
+        const value = gn.value.blockName[""].valueBlock.value;
+        return {
+            oid: oidString,
+            value: value
+        };
+    });
 
     return true;
 }
 
 function validateMcpMrnSyntax(mrn: string): boolean {
     return mcpMrnRegex.test(mrn);
+}
+
+function oidToString(oids: Array<LocalSidValueBlock>): string {
+    const oidStrings: Array<string> = new Array(oids.length);
+    const firstByte = new Uint8Array(oids[0].valueHex)[0];
+    oidStrings[0] = Math.floor(firstByte / 40).toString();
+    oidStrings[1] = (firstByte % 40).toString();
+
+    for (let i = 1; i < oids.length; i++) {
+        const buf = new Uint8Array(oids[i].valueHex);
+
+        let result = 0n;
+
+        for (let j = (buf.length - 1); j >= 0; j--) {
+            result += BigInt(buf[(buf.length - 1) - j] * Math.pow(2, 7 * j));
+        }
+        oidStrings.push(result.toString());
+    }
+
+    return oidStrings.join(".");
 }
