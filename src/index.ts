@@ -21,7 +21,8 @@ interface McpAltNameAttribute {
     value: string
 }
 
-const mcpMrnRegex: RegExp = /urn:mrn:mcp:(device|org|user|vessel|service|mms):([a-z0-9]([a-z0-9]|-){0,20}[a-z0-9]):((([-._a-z0-9]|~)|%[0-9a-f][0-9a-f]|([!$&'()*+,;=])|:|@)((([-._a-z0-9]|~)|%[0-9a-f][0-9a-f]|([!$&'()*+,;=])|:|@)|\/)*)/;
+const mrnRegex: RegExp = /^urn:mrn:([a-z0-9]([a-z0-9]|-){0,20}[a-z0-9]):([a-z0-9][-a-z0-9]{0,20}[a-z0-9]):((([-._a-z0-9]|~)|%[0-9a-f][0-9a-f]|([!$&'()*+,;=])|:|@)((([-._a-z0-9]|~)|%[0-9a-f][0-9a-f]|([!$&'()*+,;=])|:|@)|\/)*)((\?\+((([-._a-z0-9]|~)|%[0-9a-f][0-9a-f]|([!$&'()*+,;=])|:|@)((([-._a-z0-9]|~)|%[0-9a-f][0-9a-f]|([!$&'()*+,;=])|:|@)|\/|\?)*))?(\?=((([-._a-z0-9]|~)|%[0-9a-f][0-9a-f]|([!$&'()*+,;=])|:|@)((([-._a-z0-9]|~)|%[0-9a-f][0-9a-f]|([!$&'()*+,;=])|:|@)|\/|\?)*))?)?(#(((([-._a-z0-9]|~)|%[0-9a-f][0-9a-f]|([!$&'()*+,;=])|:|@)|\/|\?)*))?$/;
+const mcpMrnRegex: RegExp = /^urn:mrn:mcp:(device|org|user|vessel|service|mms):([a-z0-9]([a-z0-9]|-){0,20}[a-z0-9]):((([-._a-z0-9]|~)|%[0-9a-f][0-9a-f]|([!$&'()*+,;=])|:|@)((([-._a-z0-9]|~)|%[0-9a-f][0-9a-f]|([!$&'()*+,;=])|:|@)|\/)*)$/;
 const mcpTypes: Array<string> = ["device", "org", "user", "vessel", "service", "mms"];
 
 const certFileUploader: HTMLInputElement = document.getElementById('certFileUploader') as HTMLInputElement;
@@ -219,7 +220,7 @@ function validateCertContent(cert: Certificate): boolean {
     const subject: AttributeTypeAndValue[] = cert.subject.typesAndValues;
     const mcpMrn: string = subject.find(v => v.type as unknown === "0.9.2342.19200300.100.1.1").value.valueBlock.value; // UID
     const orgMcpMrn: string = subject.find(v => v.type as unknown === "2.5.4.10").value.valueBlock.value; // O
-    if (!validateMcpMrnSyntax(mcpMrn) || !validateMcpMrnSyntax(orgMcpMrn))
+    if (!validateMcpMrn(mcpMrn) || !validateMcpMrn(orgMcpMrn))
         return false;
 
     const type: string = subject.find(v => v.type as unknown === "2.5.4.11").value.valueBlock.value; // OU
@@ -236,24 +237,72 @@ function validateCertContent(cert: Certificate): boolean {
 
     const altNames = cert.extensions.find(e => e.extnID === "2.5.29.17").parsedValue.altNames;
 
-    const mcpAttributes: Array<McpAltNameAttribute> = altNames.map((gn: GeneralName) => {
+    const mcpAttrDict: {[key: string]: McpAltNameAttribute} = {};
+    altNames.forEach((gn: GeneralName) => {
         const oid = gn.value.valueBlock.value[0].valueBlock.value;
-        const oidString = oidToString(oid);
+        const oidString = hexOidsToString(oid);
         const value = gn.value.blockName[""].valueBlock.value;
-        return {
+        mcpAttrDict[oidString] = {
             oid: oidString,
             value: value
         };
     });
 
+    // IMO number
+    if (mcpAttrDict["2.25.291283622413876360871493815653100799259"]) {
+        if (!["vessel", "service"].includes(type)) {
+            return false;
+        }
+        const imoNumber = mcpAttrDict["2.25.291283622413876360871493815653100799259"].value;
+        if (!/^(IMO)?( )?\d{7}$/.test(imoNumber)) {
+            return false;
+        }
+    }
+
+    // MMSI number
+    if (mcpAttrDict["2.25.328433707816814908768060331477217690907"]) {
+        if (!["vessel", "service"].includes(type)) {
+            return false;
+        }
+        const mmsiNumber = mcpAttrDict["2.25.328433707816814908768060331477217690907"].value;
+        if (!/^\d{9}$/.test(mmsiNumber)) {
+            return false;
+        }
+    }
+
+    // AIS type
+    if (mcpAttrDict["2.25.107857171638679641902842130101018412315"]) {
+        if (!["vessel", "service"].includes(type)) {
+            return false;
+        }
+        const aisType = mcpAttrDict["2.25.107857171638679641902842130101018412315"].value;
+        if (!/^[AB]$/.test(aisType)) {
+            return false;
+        }
+    }
+
+    if (mcpAttrDict["2.25.268095117363717005222833833642941669792"]) {
+        if (type !== "service") {
+            return false;
+        }
+        const shipMrn = mcpAttrDict["2.25.268095117363717005222833833642941669792"].value;
+        if (!validateGenericMrn(shipMrn)) {
+            return false;
+        }
+    }
+
     return true;
 }
 
-function validateMcpMrnSyntax(mrn: string): boolean {
+function validateGenericMrn(mrn: string): boolean {
+    return mrnRegex.test(mrn);
+}
+
+function validateMcpMrn(mrn: string): boolean {
     return mcpMrnRegex.test(mrn);
 }
 
-function oidToString(oids: Array<LocalSidValueBlock>): string {
+function hexOidsToString(oids: Array<LocalSidValueBlock>): string {
     const oidStrings: Array<string> = new Array(oids.length);
     const firstByte = new Uint8Array(oids[0].valueHex)[0];
     oidStrings[0] = Math.floor(firstByte / 40).toString();
