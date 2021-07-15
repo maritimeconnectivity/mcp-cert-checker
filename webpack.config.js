@@ -56,6 +56,7 @@ const config = {
 module.exports = () => {
   if (isProduction) {
     config.mode = "production";
+    config.devtool = "source-map";
   } else {
     config.mode = "development";
   }
