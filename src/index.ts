@@ -220,7 +220,7 @@ function validateCertContent(cert: Certificate): boolean {
     const subject: AttributeTypeAndValue[] = cert.subject.typesAndValues;
     const mcpMrn: string = subject.find(v => v.type as unknown === "0.9.2342.19200300.100.1.1").value.valueBlock.value; // UID
     const orgMcpMrn: string = subject.find(v => v.type as unknown === "2.5.4.10").value.valueBlock.value; // O
-    if (!validateMcpMrn(mcpMrn) || !validateMcpMrn(orgMcpMrn))
+    if (!isValidMcpMRN(mcpMrn) || !isValidMcpMRN(orgMcpMrn))
         return false;
 
     const type: string = subject.find(v => v.type as unknown === "2.5.4.11").value.valueBlock.value; // OU
@@ -247,6 +247,14 @@ function validateCertContent(cert: Certificate): boolean {
             value: value
         };
     });
+
+    if (mcpAttrDict["2.25.323100633285601570573910217875371967771"] // Flagstate
+        || mcpAttrDict["2.25.208070283325144527098121348946972755227"] // Callsign
+        || mcpAttrDict["2.25.285632790821948647314354670918887798603"]) { // Port of register
+        if (!["vessel", "service"].includes(type)) {
+            return false;
+        }
+    }
 
     // IMO number
     if (mcpAttrDict["2.25.291283622413876360871493815653100799259"]) {
@@ -281,12 +289,51 @@ function validateCertContent(cert: Certificate): boolean {
         }
     }
 
+    // Ship MRN
     if (mcpAttrDict["2.25.268095117363717005222833833642941669792"]) {
         if (type !== "service") {
             return false;
         }
         const shipMrn = mcpAttrDict["2.25.268095117363717005222833833642941669792"].value;
-        if (!validateGenericMrn(shipMrn)) {
+        if (!isValidMcpMRN(shipMrn)) {
+            return false;
+        }
+    }
+
+    // MRN
+    if (mcpAttrDict["2.25.271477598449775373676560215839310464283"]) {
+        if (!["vessel", "user", "device", "service", "mms"].includes(type)) {
+            return false;
+        }
+        const mrn = mcpAttrDict["2.25.271477598449775373676560215839310464283"].value;
+        if (!isValidMcpMRN(mrn) || mrn === mcpMrn) {
+            return false;
+        }
+    }
+
+    // Subsidiary MRN
+    if (mcpAttrDict["2.25.133833610339604538603087183843785923701"]) {
+        if (!["vessel", "user", "device", "service", "mms"].includes(type)) {
+            return false;
+        }
+        const mrn = mcpAttrDict["2.25.133833610339604538603087183843785923701"].value;
+        if (mrn === mcpMrn || !isValidMRN(mrn)) {
+            return false;
+        }
+    }
+
+    // Home MMS URL
+    if (mcpAttrDict["2.25.171344478791913547554566856023141401757"]) {
+        const url = mcpAttrDict["2.25.171344478791913547554566856023141401757"].value;
+        if (!["vessel", "user", "device", "service", "mms"].includes(type) || !isValidURL(url)) {
+            return false;
+        }
+    }
+
+    // URL
+    if (mcpAttrDict["2.25.245076023612240385163414144226581328607"]) {
+        const url = mcpAttrDict["2.25.245076023612240385163414144226581328607"].value;
+        if (type !== "mms" || !isValidURL(url)) {
             return false;
         }
     }
@@ -294,12 +341,21 @@ function validateCertContent(cert: Certificate): boolean {
     return true;
 }
 
-function validateGenericMrn(mrn: string): boolean {
+function isValidMRN(mrn: string): boolean {
     return mrnRegex.test(mrn);
 }
 
-function validateMcpMrn(mrn: string): boolean {
-    return mcpMrnRegex.test(mrn);
+function isValidMcpMRN(mrn: string): boolean {
+    return isValidMRN(mrn) && mcpMrnRegex.test(mrn);
+}
+
+function isValidURL(url: string): boolean {
+    try {
+        new URL(url);
+    } catch (e) {
+        return false;
+    }
+    return true;
 }
 
 function hexOidsToString(oids: Array<LocalSidValueBlock>): string {
