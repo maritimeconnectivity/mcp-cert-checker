@@ -306,7 +306,7 @@ function validateCertContent(cert: Certificate): boolean {
             return false;
         }
         const mrn = mcpAttrDict["2.25.271477598449775373676560215839310464283"].value;
-        if (!isValidMcpMRN(mrn) || mrn === mcpMrn) {
+        if (!isValidMcpMRN(mrn) || mrn !== mcpMrn) {
             return false;
         }
     }
