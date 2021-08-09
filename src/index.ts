@@ -25,6 +25,7 @@ import CRLDistributionPoints from "pkijs/src/CRLDistributionPoints";
 import CertificateRevocationList from "pkijs/src/CertificateRevocationList";
 import AttributeTypeAndValue from "pkijs/src/AttributeTypeAndValue";
 import GeneralName from "pkijs/src/GeneralName";
+import ECPublicKey from "pkijs/src/ECPublicKey";
 
 interface Asn1Struct {
     offset: number,
@@ -106,7 +107,7 @@ caFileUploader.addEventListener("input", async () => {
 });
 
 submitButton.addEventListener("click", async () => {
-    const parsedCerts: Array<Certificate> = certs.map(c => parseCertificate(c));
+    const parsedCerts: Array<Certificate> = certs.map(parseCertificate);
     const ocspResponse = await getOCSP(parsedCerts[0], parsedCerts[1]);
     const crls = await Promise.all(parsedCerts.slice(0,2).map(getCRL));
     const validationEngine: CertificateChainValidationEngine = new CertificateChainValidationEngine(
@@ -363,6 +364,11 @@ function validateCertContent(cert: Certificate): ValidationResult {
             return {valid: false, error: "MMS URL is not valid"}
         }
     }
+
+    let pubKeyInfo = cert.subjectPublicKeyInfo;
+
+    if ((pubKeyInfo.algorithm.algorithmId !== "1.2.840.10045.2.1") || (((pubKeyInfo.parsedKey as ECPublicKey).namedCurve !== "1.3.132.0.34") && ((pubKeyInfo.parsedKey as ECPublicKey).namedCurve !== "1.2.840.10045.3.1.7")))
+        return {valid: false, error: "The certificate is not using an MCC endorsed public key algorithm"};
 
     return {valid: true, error: ""};
 }
