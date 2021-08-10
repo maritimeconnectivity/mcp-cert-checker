@@ -146,7 +146,7 @@ checkOCSPButton.addEventListener("click", async () => {
     const ocspResponse = await getOCSP(parsedCerts[0], parsedCerts[1]);
     const status = await ocspResponse.getCertificateStatus(parsedCerts[0], parsedCerts[1]);
 
-    let message;
+    let message = '';
     switch (status.status) {
         case 0:
             message = 'The certificate is valid.';
@@ -156,6 +156,9 @@ checkOCSPButton.addEventListener("click", async () => {
             break;
         case 2:
             message = 'The revocation status of the certificate could not be determined.';
+            break;
+        default:
+            message = 'Something went wrong while trying to get revocation status of the certificate.';
             break;
     }
     alert(message);
