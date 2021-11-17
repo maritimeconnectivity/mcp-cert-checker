@@ -33,6 +33,6 @@ jobs:
         git checkout gh-pages
         mv dist/* .
         rm -rf dist/
-        git add .
+        git add index.html main.js* 
         git commit -m "New application build"
         git push
