@@ -31,6 +31,8 @@ jobs:
         git config user.email mcp-bot@maritimeconnectivity.net
         git fetch
         git checkout gh-pages
-        git add dist/*
+        mv dist/* .
+        rm -rf dist/
+        git add .
         git commit -m "New application build"
         git push
