@@ -209,7 +209,7 @@ async function getOCSP(certificate: Certificate, issuerCertificate: Certificate)
     const ocspUrl = tmp.accessDescriptions[0].accessLocation.value;
     const response = await fetch(ocspUrl, {
         method: 'POST',
-        mode: "no-cors",
+        mode: "cors",
         cache: "no-cache",
         headers: {
             'Content-Type': 'application/ocsp-request'
@@ -226,7 +226,7 @@ async function getCRL(certificate: Certificate): Promise<CertificateRevocationLi
     const crlUrl = crlExt.distributionPoints[0].distributionPoint[0].value as string;
 
     const response = await fetch(crlUrl, {
-        mode: "no-cors",
+        mode: "cors",
         cache: "no-cache"
     });
     const crlString = await response.text();
