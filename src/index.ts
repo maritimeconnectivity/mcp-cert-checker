@@ -46,6 +46,9 @@ const mrnRegex: RegExp = /^urn:mrn:([a-z0-9]([a-z0-9]|-){0,20}[a-z0-9]):([a-z0-9
 const mcpMrnRegex: RegExp = /^urn:mrn:mcp:(device|org|user|vessel|service|mms):([a-z0-9]([a-z0-9]|-){0,20}[a-z0-9]):((([-._a-z0-9]|~)|%[0-9a-f][0-9a-f]|([!$&'()*+,;=])|:|@)((([-._a-z0-9]|~)|%[0-9a-f][0-9a-f]|([!$&'()*+,;=])|:|@)|\/)*)$/;
 const mcpTypes: Array<string> = ["device", "org", "user", "vessel", "service", "mms"];
 
+const greenCheckMark: string = "\u2705";
+const redCheckMark: string = "\u274C";
+
 const certFileUploader: HTMLInputElement = document.getElementById('certFileUploader') as HTMLInputElement;
 const subCaFileUploader: HTMLInputElement = document.getElementById('subCaCertFileUploader') as HTMLInputElement;
 const caFileUploader: HTMLInputElement = document.getElementById('caCertFileUploader') as HTMLInputElement;
@@ -62,6 +65,8 @@ const textAreas: Array<HTMLTextAreaElement> =
         document.getElementById('subCaCertTextArea') as HTMLTextAreaElement,
         document.getElementById('caCertTextArea') as HTMLTextAreaElement
     ];
+
+const tableContainer: HTMLDivElement = document.getElementById("tableContainer") as HTMLDivElement;
 
 const certs: Array<string> = new Array<string>(3);
 
@@ -232,21 +237,54 @@ async function getCRL(certificate: Certificate): Promise<CertificateRevocationLi
 
 function validateCertContent(cert: Certificate): ValidationResult {
     const subject: AttributeTypeAndValue[] = cert.subject.typesAndValues;
-    const mcpMrn: string = subject.find(v => v.type as unknown === "0.9.2342.19200300.100.1.1").value.valueBlock.value; // UID
-    const orgMcpMrn: string = subject.find(v => v.type as unknown === "2.5.4.10").value.valueBlock.value; // O
-    if (!isValidMcpMRN(mcpMrn))
-        return {valid: false, error: "Entity MRN is not a valid MCP MRN"};
 
-    if (!isValidMcpMRN(orgMcpMrn))
-        return {valid: false, error: "Organization MRN is not a valid MCP MRN"};
+    const cn = subject.find(v => v.type as unknown === "2.5.4.3").value?.valueBlock.value;
+    const cnRow: HTMLTableRowElement = document.getElementById("CN") as HTMLTableRowElement;
+    if (cn) {
+        cnRow.cells[1].textContent = cn;
+        cnRow.cells[2].textContent = greenCheckMark;
+    }
+
+    const mcpMrn: string = subject.find(v => v.type as unknown === "0.9.2342.19200300.100.1.1").value.valueBlock.value; // UID
+    const uidRow: HTMLTableRowElement = document.getElementById("UID") as HTMLTableRowElement;
+    if (mcpMrn && isValidMcpMRN(mcpMrn)) {
+        uidRow.cells[1].textContent = mcpMrn;
+        uidRow.cells[2].textContent = greenCheckMark;
+    } else {
+        uidRow.cells[2].textContent = redCheckMark;
+    }
+
+    // if (!isValidMcpMRN(mcpMrn))
+    //     return {valid: false, error: "Entity MRN is not a valid MCP MRN"};
+
+    const orgMcpMrn: string = subject.find(v => v.type as unknown === "2.5.4.10").value.valueBlock.value; // O
+    const oRow: HTMLTableRowElement = document.getElementById("O") as HTMLTableRowElement;
+    if (orgMcpMrn && isValidMcpMRN(orgMcpMrn)) {
+        oRow.cells[1].textContent = orgMcpMrn;
+        oRow.cells[2].textContent = greenCheckMark;
+    } else {
+        oRow.cells[2].textContent = redCheckMark;
+    }
+
+    // if (!isValidMcpMRN(orgMcpMrn))
+    //     return {valid: false, error: "Organization MRN is not a valid MCP MRN"};
 
     const type: string = subject.find(v => v.type as unknown === "2.5.4.11").value.valueBlock.value; // OU
-    if (!mcpTypes.includes(type))
-        return {valid: false, error: "Entity type is not included in certificate"};
+    const ouRow: HTMLTableRowElement = document.getElementById("OU") as HTMLTableRowElement;
+    if (type && mcpTypes.includes(type)) {
+        ouRow.cells[1].textContent = type;
+        ouRow.cells[2].textContent = greenCheckMark;
+    } else {
+        ouRow.cells[2].textContent = redCheckMark;
+    }
+
+    // if (!mcpTypes.includes(type))
+    //     return {valid: false, error: "Entity type is not included in certificate"};
 
     const mrnSplit = mcpMrn.split(':');
     if (mrnSplit[3] !== type)
-        return {valid: false, error: "Entity type is not included in MRN"};
+        uidRow.cells[2].textContent = redCheckMark;
+        // return {valid: false, error: "Entity type is not included in MRN"};
 
     const orgMrnSplit = orgMcpMrn.split(":");
     if ((mrnSplit[4] !== orgMrnSplit[4]) || (mrnSplit[5] !== orgMrnSplit[5]))
