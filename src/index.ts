@@ -207,14 +207,10 @@ async function getOCSP(certificate: Certificate, issuerCertificate: Certificate)
     const ocsp = ocspReq.toSchema(true) as Asn1js.Sequence;
     const tmp = certificate.extensions.find(e => e.extnID === "1.3.6.1.5.5.7.1.1").parsedValue as InfoAccess;
     const ocspUrl = tmp.accessDescriptions[0].accessLocation.value;
-    const response = await fetch(ocspUrl, {
-        method: 'POST',
+    const encodedOcsp = encodeURIComponent(btoa(String.fromCharCode(...new Uint8Array(ocsp.toBER()))));
+    const response = await fetch(`${ocspUrl}/${encodedOcsp}`, {
         mode: "cors",
-        cache: "no-cache",
-        headers: {
-            'Content-Type': 'application/ocsp-request'
-        },
-        body: ocsp.toBER()
+        cache: "no-cache"
     });
     const rawOcspResponse = await (await response.blob()).arrayBuffer();
     const asn1 = fromBER(rawOcspResponse);
