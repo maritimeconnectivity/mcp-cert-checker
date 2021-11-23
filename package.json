@@ -12,6 +12,10 @@
     "clean:dist": "rimraf dist"
   },
   "author": "",
+  "engines": {
+    "node": ">=16",
+    "npm": ">=8.1"
+  },
   "license": "Apache-2.0",
   "dependencies": {
     "bootstrap": "^5.0.1",
