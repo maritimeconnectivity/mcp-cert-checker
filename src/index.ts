@@ -278,7 +278,7 @@ function validateCertContent(cert: Certificate): void {
         const emailRow: HTMLTableRowElement = document.getElementById("E") as HTMLTableRowElement;
         if (email) {
             emailRow.cells[1].textContent = email;
-            if (!/^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,3})+$/.test(email)) {
+            if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
                 emailRow.cells[2].textContent = redCheckMark;
                 emailRow.cells[2].title = "The email address in the certificate is not valid";
             } else {
