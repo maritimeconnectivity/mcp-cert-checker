@@ -33,6 +33,8 @@ jobs:
         git checkout gh-pages
         mv dist/* .
         rm -rf dist/
-        git add index.html main.js* 
+        git add index.html main.js*
+        if [ -z $(git --no-pager diff) ]; then exit 0; fi 
         git commit -m "New application build"
         git push
+      shell: bash
