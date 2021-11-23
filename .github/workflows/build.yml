@@ -24,6 +24,7 @@ jobs:
         cache: 'npm'
 
     - name: Build
+      if: ${{ github.event_name == 'push' }}
       run: |
         npm install
         npm run build
