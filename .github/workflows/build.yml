@@ -35,7 +35,7 @@ jobs:
         mv dist/* .
         rm -rf dist/
         git add index.html main.js*
-        if [ -z $(git --no-pager diff) ]; then exit 0; fi 
+        if [[ -z $(git --no-pager diff HEAD) ]]; then exit 0; fi 
         git commit -m "New application build"
         git push
       shell: bash
