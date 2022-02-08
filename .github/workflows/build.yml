@@ -24,10 +24,13 @@ jobs:
         cache: 'npm'
 
     - name: Build
-      if: ${{ github.event_name == 'push' }}
       run: |
         npm install
         npm run build
+
+    - name: Git Push
+      if: ${{ github.event_name == 'push' }}
+      run: |
         git config user.name mcp-bot
         git config user.email mcp-bot@maritimeconnectivity.net
         git fetch
@@ -38,4 +41,3 @@ jobs:
         if [[ -z $(git --no-pager diff HEAD) ]]; then exit 0; fi 
         git commit -m "New application build"
         git push
-      shell: bash
