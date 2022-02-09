@@ -41,3 +41,4 @@ jobs:
         if [[ -z $(git --no-pager diff HEAD) ]]; then exit 0; fi 
         git commit -m "New application build"
         git push
+      shell: bash
