@@ -28,7 +28,6 @@ import {
     OCSPRequest,
     OCSPResponse
 } from "pkijs";
-import {Convert} from "pvtsutils";
 
 interface McpAltNameAttribute {
     oid: string,
@@ -214,9 +213,7 @@ async function getOCSP(certificate: Certificate, issuerCertificate: Certificate)
 
 async function getCRL(certificate: Certificate): Promise<CertificateRevocationList> {
     const crlExt = certificate.extensions.find(e => e.extnID === '2.5.29.31').parsedValue as CRLDistributionPoints;
-    let crlUrl = crlExt.distributionPoints[0].distributionPoint.toString();
-    crlUrl = new TextDecoder().decode(Convert.FromHex(crlUrl));
-    console.log(crlUrl);
+    const crlUrl = (crlExt.distributionPoints[0].distributionPoint as GeneralName[])[0].value;
 
     const response = await fetch(crlUrl, {
         mode: "cors",
