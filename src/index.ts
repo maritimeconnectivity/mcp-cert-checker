@@ -444,9 +444,9 @@ function validateCertContent(cert: Certificate): void {
         }
     }
 
-    let pubKeyInfo = cert.subjectPublicKeyInfo;
+    const pubKeyInfo = cert.subjectPublicKeyInfo;
 
-    if ((pubKeyInfo.algorithm.algorithmId !== "1.2.840.10045.2.1") || (((pubKeyInfo.parsedKey as ECPublicKey).namedCurve !== "1.3.132.0.34") && ((pubKeyInfo.parsedKey as ECPublicKey).namedCurve !== "1.2.840.10045.3.1.7")))
+    if ((pubKeyInfo.algorithm.algorithmId !== "1.2.840.10045.2.1") || (((pubKeyInfo.parsedKey as ECPublicKey).namedCurve !== "P-384") && ((pubKeyInfo.parsedKey as ECPublicKey).namedCurve !== "P-256")))
         alert("The certificate is not using an MCC endorsed public key algorithm");
 
     tableContainer.hidden = false;
