@@ -13,33 +13,25 @@
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
  */
-import 'bootstrap';
-import 'bootstrap/dist/css/bootstrap.min.css';
-import Asn1js, {fromBER, LocalBaseBlock, LocalSidValueBlock} from "asn1js";
-import Certificate from "pkijs/src/Certificate";
-import CertificateChainValidationEngine from "pkijs/src/CertificateChainValidationEngine";
-import OCSPRequest from "pkijs/src/OCSPRequest";
-import InfoAccess from "pkijs/src/InfoAccess";
-import OCSPResponse from "pkijs/src/OCSPResponse";
-import CRLDistributionPoints from "pkijs/src/CRLDistributionPoints";
-import CertificateRevocationList from "pkijs/src/CertificateRevocationList";
-import AttributeTypeAndValue from "pkijs/src/AttributeTypeAndValue";
-import GeneralName from "pkijs/src/GeneralName";
-import ECPublicKey from "pkijs/src/ECPublicKey";
-
-interface Asn1Struct {
-    offset: number,
-    result: LocalBaseBlock
-}
+import "bootstrap";
+import "bootstrap/dist/css/bootstrap.min.css";
+import {
+    AttributeTypeAndValue,
+    BasicOCSPResponse,
+    Certificate,
+    CertificateChainValidationEngine,
+    CertificateRevocationList,
+    CRLDistributionPoints,
+    ECPublicKey,
+    GeneralName,
+    InfoAccess,
+    OCSPRequest,
+    OCSPResponse
+} from "pkijs";
 
 interface McpAltNameAttribute {
     oid: string,
     value: string
-}
-
-interface ValidationResult {
-    valid: boolean,
-    error: string
 }
 
 const mrnRegex: RegExp = /^urn:mrn:([a-z0-9]([a-z0-9]|-){0,20}[a-z0-9]):([a-z0-9][-a-z0-9]{0,20}[a-z0-9]):((([-._a-z0-9]|~)|%[0-9a-f][0-9a-f]|([!$&'()*+,;=])|:|@)((([-._a-z0-9]|~)|%[0-9a-f][0-9a-f]|([!$&'()*+,;=])|:|@)|\/)*)((\?\+((([-._a-z0-9]|~)|%[0-9a-f][0-9a-f]|([!$&'()*+,;=])|:|@)((([-._a-z0-9]|~)|%[0-9a-f][0-9a-f]|([!$&'()*+,;=])|:|@)|\/|\?)*))?(\?=((([-._a-z0-9]|~)|%[0-9a-f][0-9a-f]|([!$&'()*+,;=])|:|@)((([-._a-z0-9]|~)|%[0-9a-f][0-9a-f]|([!$&'()*+,;=])|:|@)|\/|\?)*))?)?(#(((([-._a-z0-9]|~)|%[0-9a-f][0-9a-f]|([!$&'()*+,;=])|:|@)|\/|\?)*))?$/;
@@ -146,7 +138,7 @@ checkOCSPButton.addEventListener("click", async () => {
     const ocspResponse = await getOCSP(parsedCerts[0], parsedCerts[1]);
     const status = await ocspResponse.getCertificateStatus(parsedCerts[0], parsedCerts[1]);
 
-    let message = '';
+    let message: string;
     switch (status.status) {
         case 0:
             message = 'The certificate is valid.';
@@ -183,16 +175,15 @@ clearButton.addEventListener("click", () => {
    location.reload();
 });
 
-function parsePem(input: string): Asn1Struct {
+function parsePem(input: string): Uint8Array {
     const b64 = input.replace(/(-----(BEGIN|END) (.*?)-----|[\n\r])/g, '');
-    const binary = atob(b64);
-    const bytes = Uint8Array.from(binary, c => c.charCodeAt(0));
-    return fromBER(bytes.buffer);
+    const binary = window.atob(b64);
+    return Uint8Array.from(binary, c => c.charCodeAt(0));
 }
 
 function parseCertificate(pemCert: string): Certificate {
     const asn1 = parsePem(pemCert);
-    return new Certificate({ schema: asn1.result });
+    return Certificate.fromBER(asn1);
 }
 
 function extractCerts(pemCerts: string): void {
@@ -203,26 +194,26 @@ function extractCerts(pemCerts: string): void {
     });
 }
 
-async function getOCSP(certificate: Certificate, issuerCertificate: Certificate): Promise<OCSPResponse> {
+async function getOCSP(certificate: Certificate, issuerCertificate: Certificate): Promise<BasicOCSPResponse> {
     const ocspReq: OCSPRequest = new OCSPRequest();
 
-    await ocspReq.createForCertificate(certificate, { hashAlgorithm: "SHA-384", issuerCertificate: issuerCertificate} );
-    const ocsp = ocspReq.toSchema(true) as Asn1js.Sequence;
+    await ocspReq.createForCertificate(certificate, { hashAlgorithm: "SHA-384", issuerCertificate: issuerCertificate } );
+    const ocsp = ocspReq.toSchema(true);
     const tmp = certificate.extensions.find(e => e.extnID === "1.3.6.1.5.5.7.1.1").parsedValue as InfoAccess;
-    const ocspUrl = tmp.accessDescriptions[0].accessLocation.value;
-    const encodedOcsp = encodeURIComponent(btoa(String.fromCharCode(...new Uint8Array(ocsp.toBER()))));
+    const ocspUrl = tmp.accessDescriptions[0].accessLocation.value as string;
+    const encodedOcsp = encodeURIComponent(window.btoa(String.fromCharCode(...new Uint8Array(ocsp.toBER()))));
     const response = await fetch(`${ocspUrl}/${encodedOcsp}`, {
         mode: "cors",
         cache: "no-cache"
     });
     const rawOcspResponse = await (await response.blob()).arrayBuffer();
-    const asn1 = fromBER(rawOcspResponse);
-    return new OCSPResponse({ schema: asn1.result });
+    const ocspResponse = OCSPResponse.fromBER(rawOcspResponse);
+    return BasicOCSPResponse.fromBER(ocspResponse.responseBytes.response.getValue());
 }
 
 async function getCRL(certificate: Certificate): Promise<CertificateRevocationList> {
     const crlExt = certificate.extensions.find(e => e.extnID === '2.5.29.31').parsedValue as CRLDistributionPoints;
-    const crlUrl = crlExt.distributionPoints[0].distributionPoint[0].value as string;
+    const crlUrl = (crlExt.distributionPoints[0].distributionPoint as GeneralName[])[0].value;
 
     const response = await fetch(crlUrl, {
         mode: "cors",
@@ -230,20 +221,20 @@ async function getCRL(certificate: Certificate): Promise<CertificateRevocationLi
     });
     const crlString = await response.text();
     const crlAsn1 = parsePem(crlString);
-    return new CertificateRevocationList({schema: crlAsn1.result});
+    return CertificateRevocationList.fromBER(crlAsn1);
 }
 
 function validateCertContent(cert: Certificate): void {
     const subject: AttributeTypeAndValue[] = cert.subject.typesAndValues;
 
-    const cn = subject.find(v => v.type as unknown === "2.5.4.3")?.value.valueBlock.value;
+    const cn = subject.find(v => v.type === "2.5.4.3")?.value.valueBlock.value;
     const cnRow: HTMLTableRowElement = document.getElementById("CN") as HTMLTableRowElement;
     if (cn) {
         cnRow.cells[1].textContent = cn;
         cnRow.cells[2].textContent = greenCheckMark;
     }
 
-    const mcpMrn: string = subject.find(v => v.type as unknown === "0.9.2342.19200300.100.1.1")?.value.valueBlock.value; // UID
+    const mcpMrn: string = subject.find(v => v.type === "0.9.2342.19200300.100.1.1")?.value.valueBlock.value; // UID
     const uidRow: HTMLTableRowElement = document.getElementById("UID") as HTMLTableRowElement;
     if (mcpMrn && isValidMcpMRN(mcpMrn)) {
         uidRow.cells[1].textContent = mcpMrn;
@@ -253,7 +244,7 @@ function validateCertContent(cert: Certificate): void {
         uidRow.cells[2].title = "Entity MRN is not a valid MCP MRN";
     }
 
-    const orgMcpMrn: string = subject.find(v => v.type as unknown === "2.5.4.10")?.value.valueBlock.value; // O
+    const orgMcpMrn: string = subject.find(v => v.type === "2.5.4.10")?.value.valueBlock.value; // O
     const oRow: HTMLTableRowElement = document.getElementById("O") as HTMLTableRowElement;
     if (orgMcpMrn && isValidMcpMRN(orgMcpMrn)) {
         oRow.cells[1].textContent = orgMcpMrn;
@@ -263,7 +254,7 @@ function validateCertContent(cert: Certificate): void {
         oRow.cells[2].title = "Organization MRN is not a valid MCP MRN";
     }
 
-    const type: string = subject.find(v => v.type as unknown === "2.5.4.11")?.value.valueBlock.value; // OU
+    const type: string = subject.find(v => v.type === "2.5.4.11")?.value.valueBlock.value; // OU
     const ouRow: HTMLTableRowElement = document.getElementById("OU") as HTMLTableRowElement;
     if (type && mcpTypes.includes(type)) {
         ouRow.cells[1].textContent = type;
@@ -274,7 +265,7 @@ function validateCertContent(cert: Certificate): void {
     }
 
     if (["user", "organization"].includes(type)) {
-        const email: string = subject.find(v => v.type as unknown === "1.2.840.113549.1.9.1")?.value.valueBlock.value; // E
+        const email: string = subject.find(v => v.type === "1.2.840.113549.1.9.1")?.value.valueBlock.value; // E
         const emailRow: HTMLTableRowElement = document.getElementById("E") as HTMLTableRowElement;
         if (email) {
             emailRow.cells[1].textContent = email;
@@ -302,7 +293,7 @@ function validateCertContent(cert: Certificate): void {
         uidRow.cells[2].title = oRow.cells[2].title = "Information in entity MRN does not correspond with information in organization MRN";
     }
 
-    const country = subject.find(v => v.type as unknown === "2.5.4.6").value?.valueBlock.value; // C
+    const country = subject.find(v => v.type === "2.5.4.6").value?.valueBlock.value; // C
     const cRow: HTMLTableRowElement = document.getElementById("C") as HTMLTableRowElement;
     if (country) {
         cRow.cells[1].textContent = country;
@@ -453,9 +444,9 @@ function validateCertContent(cert: Certificate): void {
         }
     }
 
-    let pubKeyInfo = cert.subjectPublicKeyInfo;
+    const pubKeyInfo = cert.subjectPublicKeyInfo;
 
-    if ((pubKeyInfo.algorithm.algorithmId !== "1.2.840.10045.2.1") || (((pubKeyInfo.parsedKey as ECPublicKey).namedCurve !== "1.3.132.0.34") && ((pubKeyInfo.parsedKey as ECPublicKey).namedCurve !== "1.2.840.10045.3.1.7")))
+    if ((pubKeyInfo.algorithm.algorithmId !== "1.2.840.10045.2.1") || (((pubKeyInfo.parsedKey as ECPublicKey).namedCurve !== "P-384") && ((pubKeyInfo.parsedKey as ECPublicKey).namedCurve !== "P-256")))
         alert("The certificate is not using an MCC endorsed public key algorithm");
 
     tableContainer.hidden = false;
@@ -478,7 +469,7 @@ function isValidURL(url: string): boolean {
     return true;
 }
 
-function hexOidsToString(oids: Array<LocalSidValueBlock>): string {
+function hexOidsToString(oids: Array<any>): string {
     const oidStrings: Array<string> = new Array(oids.length);
     const firstByte = new Uint8Array(oids[0].valueHex)[0];
     oidStrings[0] = Math.floor(firstByte / 40).toString();
