@@ -308,7 +308,7 @@ function validateCertContent(cert: Certificate): void {
     const mcpAttrDict: {[key: string]: McpAltNameAttribute} = {};
     altNames.forEach((gn: GeneralName) => {
         const oid = gn.value.valueBlock.value[0].valueBlock.value;
-        const oidString = oid.toString();
+        const oidString = hexOidsToString(oid);
         const value = gn.value.blockName[""].valueBlock.value;
         mcpAttrDict[oidString] = {
             oid: oidString,
@@ -467,4 +467,24 @@ function isValidURL(url: string): boolean {
         return false;
     }
     return true;
+}
+
+function hexOidsToString(oids: Array<any>): string {
+    const oidStrings: Array<string> = new Array(oids.length);
+    const firstByte = new Uint8Array(oids[0].valueHex)[0];
+    oidStrings[0] = Math.floor(firstByte / 40).toString();
+    oidStrings[1] = (firstByte % 40).toString();
+
+    for (let i = 1; i < oids.length; i++) {
+        const buf = new Uint8Array(oids[i].valueHex);
+
+        let result = 0n;
+
+        for (let j = (buf.length - 1); j >= 0; j--) {
+            result += BigInt(buf[(buf.length - 1) - j] * Math.pow(2, 7 * j));
+        }
+        oidStrings.push(result.toString());
+    }
+
+    return oidStrings.join(".");
 }
