@@ -138,7 +138,7 @@ checkOCSPButton.addEventListener("click", async () => {
     const ocspResponse = await getOCSP(parsedCerts[0], parsedCerts[1]);
     const status = await ocspResponse.getCertificateStatus(parsedCerts[0], parsedCerts[1]);
 
-    let message = '';
+    let message: string;
     switch (status.status) {
         case 0:
             message = 'The certificate is valid.';
@@ -227,14 +227,14 @@ async function getCRL(certificate: Certificate): Promise<CertificateRevocationLi
 function validateCertContent(cert: Certificate): void {
     const subject: AttributeTypeAndValue[] = cert.subject.typesAndValues;
 
-    const cn = subject.find(v => v.type as unknown === "2.5.4.3")?.value.valueBlock.value;
+    const cn = subject.find(v => v.type === "2.5.4.3")?.value.valueBlock.value;
     const cnRow: HTMLTableRowElement = document.getElementById("CN") as HTMLTableRowElement;
     if (cn) {
         cnRow.cells[1].textContent = cn;
         cnRow.cells[2].textContent = greenCheckMark;
     }
 
-    const mcpMrn: string = subject.find(v => v.type as unknown === "0.9.2342.19200300.100.1.1")?.value.valueBlock.value; // UID
+    const mcpMrn: string = subject.find(v => v.type === "0.9.2342.19200300.100.1.1")?.value.valueBlock.value; // UID
     const uidRow: HTMLTableRowElement = document.getElementById("UID") as HTMLTableRowElement;
     if (mcpMrn && isValidMcpMRN(mcpMrn)) {
         uidRow.cells[1].textContent = mcpMrn;
@@ -244,7 +244,7 @@ function validateCertContent(cert: Certificate): void {
         uidRow.cells[2].title = "Entity MRN is not a valid MCP MRN";
     }
 
-    const orgMcpMrn: string = subject.find(v => v.type as unknown === "2.5.4.10")?.value.valueBlock.value; // O
+    const orgMcpMrn: string = subject.find(v => v.type === "2.5.4.10")?.value.valueBlock.value; // O
     const oRow: HTMLTableRowElement = document.getElementById("O") as HTMLTableRowElement;
     if (orgMcpMrn && isValidMcpMRN(orgMcpMrn)) {
         oRow.cells[1].textContent = orgMcpMrn;
@@ -254,7 +254,7 @@ function validateCertContent(cert: Certificate): void {
         oRow.cells[2].title = "Organization MRN is not a valid MCP MRN";
     }
 
-    const type: string = subject.find(v => v.type as unknown === "2.5.4.11")?.value.valueBlock.value; // OU
+    const type: string = subject.find(v => v.type === "2.5.4.11")?.value.valueBlock.value; // OU
     const ouRow: HTMLTableRowElement = document.getElementById("OU") as HTMLTableRowElement;
     if (type && mcpTypes.includes(type)) {
         ouRow.cells[1].textContent = type;
@@ -265,7 +265,7 @@ function validateCertContent(cert: Certificate): void {
     }
 
     if (["user", "organization"].includes(type)) {
-        const email: string = subject.find(v => v.type as unknown === "1.2.840.113549.1.9.1")?.value.valueBlock.value; // E
+        const email: string = subject.find(v => v.type === "1.2.840.113549.1.9.1")?.value.valueBlock.value; // E
         const emailRow: HTMLTableRowElement = document.getElementById("E") as HTMLTableRowElement;
         if (email) {
             emailRow.cells[1].textContent = email;
@@ -293,7 +293,7 @@ function validateCertContent(cert: Certificate): void {
         uidRow.cells[2].title = oRow.cells[2].title = "Information in entity MRN does not correspond with information in organization MRN";
     }
 
-    const country = subject.find(v => v.type as unknown === "2.5.4.6").value?.valueBlock.value; // C
+    const country = subject.find(v => v.type === "2.5.4.6").value?.valueBlock.value; // C
     const cRow: HTMLTableRowElement = document.getElementById("C") as HTMLTableRowElement;
     if (country) {
         cRow.cells[1].textContent = country;
