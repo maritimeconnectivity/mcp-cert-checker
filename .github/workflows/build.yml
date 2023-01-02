@@ -2,9 +2,7 @@ name: NodeJS
 
 on:
   push:
-    branches: [ master ]
   pull_request:
-    branches: [ master ]
 
 jobs:
   build:
@@ -29,7 +27,7 @@ jobs:
         npm run build
 
     - name: Git Push
-      if: ${{ github.event_name == 'push' }}
+      if: github.event_name == 'push' && github.ref == 'refs/heads/master'
       run: |
         git config user.name mcp-bot
         git config user.email mcp-bot@maritimeconnectivity.net
