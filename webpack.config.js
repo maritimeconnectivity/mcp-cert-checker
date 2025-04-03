@@ -2,6 +2,7 @@
 
 const path = require("path");
 const HtmlWebpackPlugin = require("html-webpack-plugin");
+const CopyPlugin = require("copy-webpack-plugin");
 
 const isProduction = process.env.NODE_ENV == "production";
 
@@ -20,10 +21,19 @@ const config = {
     new HtmlWebpackPlugin({
       template: "index.html",
     }),
+    new CopyPlugin({
+      patterns: [
+        "src/main.wasm",
+        "src/wasm_exec.js"
+      ]
+    })
 
     // Add your plugins here
     // Learn more about plugins from https://webpack.js.org/configuration/plugins/
   ],
+  experiments: {
+    asyncWebAssembly: true,
+  },
   module: {
     rules: [
       {

@@ -11,5 +11,10 @@
       "dom"
     ]
   },
-  "files": ["src/index.ts"]
+  "files": [
+    "src/index.ts",
+    "src/main.d.ts",
+    "src/main.wasm",
+    "src/wasm_exec.js"
+  ]
 }

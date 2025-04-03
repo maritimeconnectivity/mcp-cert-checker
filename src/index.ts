@@ -19,7 +19,6 @@ import {
     AttributeTypeAndValue,
     BasicOCSPResponse,
     Certificate,
-    CertificateChainValidationEngine,
     CertificateRevocationList,
     CRLDistributionPoints,
     ECPublicKey,
@@ -41,32 +40,32 @@ const mcpTypes: Array<string> = ["device", "org", "user", "vessel", "service", "
 const greenCheckMark: string = "\u2705";
 const redCheckMark: string = "\u274C";
 
-const certFileUploader: HTMLInputElement = document.getElementById('certFileUploader') as HTMLInputElement;
-const subCaFileUploader: HTMLInputElement = document.getElementById('subCaCertFileUploader') as HTMLInputElement;
-const caFileUploader: HTMLInputElement = document.getElementById('caCertFileUploader') as HTMLInputElement;
+const certFileUploader: HTMLInputElement = document.getElementById("certFileUploader") as HTMLInputElement;
+const subCaFileUploader: HTMLInputElement = document.getElementById("subCaCertFileUploader") as HTMLInputElement;
+const caFileUploader: HTMLInputElement = document.getElementById("caCertFileUploader") as HTMLInputElement;
 
-const submitButton: HTMLButtonElement = document.getElementById('submitBtn') as HTMLButtonElement;
-const contentCheckButton: HTMLButtonElement = document.getElementById('contentCheckBtn') as HTMLButtonElement;
-const checkOCSPButton: HTMLButtonElement = document.getElementById('ocspBtn') as HTMLButtonElement;
-const clearButton: HTMLButtonElement = document.getElementById('clearBtn') as HTMLButtonElement;
-const crlButton: HTMLButtonElement = document.getElementById('crlBtn') as HTMLButtonElement;
+const submitButton: HTMLButtonElement = document.getElementById("submitBtn") as HTMLButtonElement;
+const contentCheckButton: HTMLButtonElement = document.getElementById("contentCheckBtn") as HTMLButtonElement;
+const checkOCSPButton: HTMLButtonElement = document.getElementById("ocspBtn") as HTMLButtonElement;
+const clearButton: HTMLButtonElement = document.getElementById("clearBtn") as HTMLButtonElement;
+const crlButton: HTMLButtonElement = document.getElementById("crlBtn") as HTMLButtonElement;
 
 const textAreas: Array<HTMLTextAreaElement> =
-    [
-        document.getElementById('certTextArea') as HTMLTextAreaElement,
-        document.getElementById('subCaCertTextArea') as HTMLTextAreaElement,
-        document.getElementById('caCertTextArea') as HTMLTextAreaElement
-    ];
+  [
+      document.getElementById("certTextArea") as HTMLTextAreaElement,
+      document.getElementById("subCaCertTextArea") as HTMLTextAreaElement,
+      document.getElementById("caCertTextArea") as HTMLTextAreaElement
+  ];
 
 const tableContainer: HTMLDivElement = document.getElementById("tableContainer") as HTMLDivElement;
 
 const certs: Array<string> = new Array<string>(3);
 
 textAreas[0].addEventListener("input", () => {
-   const content = textAreas[0].value;
-   if (content.length > 0) {
-       extractCerts(content);
-   }
+    const content = textAreas[0].value;
+    if (content.length > 0) {
+        extractCerts(content);
+    }
 });
 
 certFileUploader.addEventListener("input", async () => {
@@ -78,7 +77,7 @@ certFileUploader.addEventListener("input", async () => {
 });
 
 textAreas[1].addEventListener("input", () => {
-   certs[1] = textAreas[1].value;
+    certs[1] = textAreas[1].value;
 });
 
 subCaFileUploader.addEventListener("input", async () => {
@@ -95,41 +94,27 @@ textAreas[2].addEventListener("input", () => {
 });
 
 caFileUploader.addEventListener("input", async () => {
-   if (caFileUploader.files.length > 0) {
-       const file = caFileUploader.files[0];
-       const content = await file.text();
-       certs[2] = content;
-       textAreas[2].value = content;
-   }
+    if (caFileUploader.files.length > 0) {
+        const file = caFileUploader.files[0];
+        const content = await file.text();
+        certs[2] = content;
+        textAreas[2].value = content;
+    }
 });
 
 submitButton.addEventListener("click", async () => {
-    const parsedCerts: Array<Certificate> = certs.map(parseCertificate);
-    const ocspResponse = await getOCSP(parsedCerts[0], parsedCerts[1]);
-    const crls = await Promise.all(parsedCerts.slice(0,2).map(getCRL));
-    const validationEngine: CertificateChainValidationEngine = new CertificateChainValidationEngine(
-        {
-            certs: parsedCerts.slice(0, parsedCerts.length - 1),
-            trustedCerts: [parsedCerts[2]],
-            ocsps: [ocspResponse],
-            crls: crls
-        });
-    validationEngine.verify().then(r => {
-        if (r?.result) {
-            alert("The trust chain was successfully verified!");
-        } else {
-            alert("The trust chain could not be verified!");
-        }
-    }, () => alert("This was bad!"));
+    verifyCertificateChain(certs[0], certs[1], certs[2]).then(result => {
+        alert(result);
+    }, error => alert(error));
 });
 
 contentCheckButton.addEventListener("click", () => {
-   const cert: Certificate = parseCertificate(certs[0]);
-   if (cert) {
-       validateCertContent(cert);
-   } else {
-       alert("No certificate was found");
-   }
+    const cert: Certificate = parseCertificate(certs[0]);
+    if (cert) {
+        validateCertContent(cert);
+    } else {
+        alert("No certificate was found");
+    }
 });
 
 checkOCSPButton.addEventListener("click", async () => {
@@ -141,16 +126,16 @@ checkOCSPButton.addEventListener("click", async () => {
     let message: string;
     switch (status.status) {
         case 0:
-            message = 'The certificate is valid.';
+            message = "The certificate is valid.";
             break;
         case 1:
-            message = 'The certificate has been revoked.';
+            message = "The certificate has been revoked.";
             break;
         case 2:
-            message = 'The revocation status of the certificate could not be determined.';
+            message = "The revocation status of the certificate could not be determined.";
             break;
         default:
-            message = 'Something went wrong while trying to get revocation status of the certificate.';
+            message = "Something went wrong while trying to get revocation status of the certificate.";
             break;
     }
     alert(message);
@@ -160,7 +145,7 @@ crlButton.addEventListener("click", async () => {
     const parsedCerts: Array<Certificate> = certs.map(parseCertificate);
 
     const crl = await getCRL(parsedCerts[0]);
-    if (await crl.verify({issuerCertificate: parsedCerts[1]})) {
+    if (await crl.verify({ issuerCertificate: parsedCerts[1] })) {
         if (crl.isCertificateRevoked(parsedCerts[0])) {
             alert("The certificate has been revoked.");
         } else {
@@ -172,11 +157,11 @@ crlButton.addEventListener("click", async () => {
 });
 
 clearButton.addEventListener("click", () => {
-   location.reload();
+    location.reload();
 });
 
 function parsePem(input: string): Uint8Array {
-    const b64 = input.replace(/(-----(BEGIN|END) (.*?)-----|[\n\r])/g, '');
+    const b64 = input.replace(/(-----(BEGIN|END) (.*?)-----|[\n\r])/g, "");
     const binary = window.atob(b64);
     return Uint8Array.from(binary, c => c.charCodeAt(0));
 }
@@ -189,15 +174,15 @@ function parseCertificate(pemCert: string): Certificate {
 function extractCerts(pemCerts: string): void {
     let matches = [...pemCerts.matchAll(/(-----BEGIN CERTIFICATE-----)(.*?)(-----END CERTIFICATE-----)/smg)];
     matches.forEach((m, i) => {
-       certs[i] = m[0];
-       textAreas[i].value = certs[i];
+        certs[i] = m[0];
+        textAreas[i].value = certs[i];
     });
 }
 
 async function getOCSP(certificate: Certificate, issuerCertificate: Certificate): Promise<BasicOCSPResponse> {
     const ocspReq: OCSPRequest = new OCSPRequest();
 
-    await ocspReq.createForCertificate(certificate, { hashAlgorithm: "SHA-384", issuerCertificate: issuerCertificate } );
+    await ocspReq.createForCertificate(certificate, { hashAlgorithm: "SHA-384", issuerCertificate: issuerCertificate });
     const ocsp = ocspReq.toSchema(true);
     const tmp = certificate.extensions.find(e => e.extnID === "1.3.6.1.5.5.7.1.1").parsedValue as InfoAccess;
     const ocspUrl = tmp.accessDescriptions[0].accessLocation.value as string;
@@ -212,7 +197,7 @@ async function getOCSP(certificate: Certificate, issuerCertificate: Certificate)
 }
 
 async function getCRL(certificate: Certificate): Promise<CertificateRevocationList> {
-    const crlExt = certificate.extensions.find(e => e.extnID === '2.5.29.31').parsedValue as CRLDistributionPoints;
+    const crlExt = certificate.extensions.find(e => e.extnID === "2.5.29.31").parsedValue as CRLDistributionPoints;
     const crlUrl = (crlExt.distributionPoints[0].distributionPoint as GeneralName[])[0].value;
 
     const response = await fetch(crlUrl, {
@@ -281,7 +266,7 @@ function validateCertContent(cert: Certificate): void {
         }
     }
 
-    const mrnSplit = mcpMrn.split(':');
+    const mrnSplit = mcpMrn.split(":");
     if (mrnSplit[3] !== type) {
         uidRow.cells[2].textContent = redCheckMark;
         uidRow.cells[2].title = "Entity type is not included in MRN";
@@ -305,7 +290,7 @@ function validateCertContent(cert: Certificate): void {
 
     const altNames = cert.extensions.find(e => e.extnID === "2.5.29.17").parsedValue.altNames;
 
-    const mcpAttrDict: {[key: string]: McpAltNameAttribute} = {};
+    const mcpAttrDict: { [key: string]: McpAltNameAttribute } = {};
     altNames.forEach((gn: GeneralName) => {
         const oid = gn.value.valueBlock.value[0].valueBlock.value;
         const oidString = hexOidsToString(oid);
@@ -402,7 +387,7 @@ function validateCertContent(cert: Certificate): void {
             }
         } else {
             mrnRow.cells[2].textContent = redCheckMark;
-            mrnRow.cells[2].title = "The certificate does not have a valid MRN field"
+            mrnRow.cells[2].title = "The certificate does not have a valid MRN field";
         }
 
         const subMrn = mcpAttrDict["2.25.133833610339604538603087183843785923701"]?.value;

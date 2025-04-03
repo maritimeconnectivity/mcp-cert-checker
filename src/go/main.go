@@ -38,53 +38,80 @@ func verifyCertificateChain() js.Func {
 		subCaPem := args[1].String()
 		rootCaPem := args[2].String()
 
-		cert, err := parseCertificate(certPem)
-		if err != nil {
-			return "Certificate parsing failed"
-		}
+		handler := js.FuncOf(func(this js.Value, args []js.Value) any {
+			resolve := args[0]
+			reject := args[1]
+			errorConstructor := js.Global().Get("Error")
 
-		subCa, err := parseCertificate(subCaPem)
-		if err != nil {
-			return "Intermediate certificate parsing failed"
-		}
+			go func() {
+				cert, err := parseCertificate(certPem)
+				if err != nil {
+					errorObject := errorConstructor.New("Certificate parsing failed")
+					reject.Invoke(errorObject)
+					return
+				}
 
-		rootCa, err := parseCertificate(rootCaPem)
-		if err != nil {
-			return "Root certificate parsing failed"
-		}
+				subCa, err := parseCertificate(subCaPem)
+				if err != nil {
+					errorObject := errorConstructor.New("Intermediate certificate parsing failed")
+					reject.Invoke(errorObject)
+					return
+				}
 
-		subCaPool := x509.NewCertPool()
-		subCaPool.AddCert(subCa)
+				rootCa, err := parseCertificate(rootCaPem)
+				if err != nil {
+					errorObject := errorConstructor.New("Root certificate parsing failed")
+					reject.Invoke(errorObject)
+					return
+				}
 
-		rootCaPool := x509.NewCertPool()
-		rootCaPool.AddCert(rootCa)
+				subCaPool := x509.NewCertPool()
+				subCaPool.AddCert(subCa)
 
-		verifyOpts := x509.VerifyOptions{
-			Intermediates: subCaPool,
-			Roots:         rootCaPool,
-		}
+				rootCaPool := x509.NewCertPool()
+				rootCaPool.AddCert(rootCa)
 
-		if _, err = cert.Verify(verifyOpts); err != nil {
-			return "Certificate chain verification failed"
-		}
+				verifyOpts := x509.VerifyOptions{
+					Intermediates: subCaPool,
+					Roots:         rootCaPool,
+				}
 
-		httpClient := http.DefaultClient
-		valid := verifyOcsp(cert, subCa, httpClient)
-		if !valid {
-			return "Failed to verify certificate using OCSP"
-		}
+				if _, err = cert.Verify(verifyOpts); err != nil {
+					errorObject := errorConstructor.New("Certificate chain verification failed")
+					reject.Invoke(errorObject)
+					return
+				}
 
-		valid = verifyCrl(subCa, rootCa, httpClient)
-		if !valid {
-			return "Failed to verify intermediate certificate using CRL"
-		}
+				httpClient := http.DefaultClient
+				err = verifyOcsp(cert, subCa, httpClient)
+				if err != nil {
+					errorObject := errorConstructor.New(err.Error())
+					reject.Invoke(errorObject)
+					return
+				}
 
-		valid = verifyCrl(rootCa, rootCa, httpClient)
-		if !valid {
-			return "Failed to verify root certificate using CRL"
-		}
+				valid := verifyCrl(subCa, rootCa, httpClient)
+				if !valid {
+					errorObject := errorConstructor.New("Failed to verify intermediate certificate using CRL")
+					reject.Invoke(errorObject)
+					return
+				}
 
-		return "Certificate chain verification successful"
+				valid = verifyCrl(rootCa, rootCa, httpClient)
+				if !valid {
+					errorObject := errorConstructor.New("Failed to verify root certificate using CRL")
+					reject.Invoke(errorObject)
+					return
+				}
+
+				resolve.Invoke("Certificate chain verification successful")
+			}()
+
+			return nil
+		})
+
+		promiseConstructor := js.Global().Get("Promise")
+		return promiseConstructor.New(handler)
 	})
 }
 
@@ -105,20 +132,20 @@ func verifyCrl(cert *x509.Certificate, issuingCert *x509.Certificate, httpClient
 	return true
 }
 
-func verifyOcsp(cert *x509.Certificate, subCa *x509.Certificate, httpClient *http.Client) bool {
+func verifyOcsp(cert *x509.Certificate, subCa *x509.Certificate, httpClient *http.Client) error {
 	ocspResp, err := checkOcsp(cert, subCa, httpClient)
 	if err != nil {
-		return false
+		return err
 	}
 	if err := ocspResp.CheckSignatureFrom(subCa); err != nil {
-		return false
+		return err
 	}
 	if ocspResp.Status == ocsp.Revoked {
-		return false
+		return fmt.Errorf("certificate is revoked")
 	} else if ocspResp.Status == ocsp.Unknown {
-		return false
+		return fmt.Errorf("certificate status is unknown")
 	}
-	return true
+	return nil
 }
 
 func parseCertificate(pemCert string) (*x509.Certificate, error) {
@@ -141,7 +168,6 @@ func checkOcsp(cert *x509.Certificate, issuingCert *x509.Certificate, httpClient
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
 	request.Header.Set("Content-Type", "application/ocsp-request")
-	request.Header.Add("js.fetch:mode", "cors")
 
 	response, err := httpClient.Do(request)
 	if err != nil {
@@ -183,5 +209,7 @@ func getCrl(cert *x509.Certificate, httpClient *http.Client) (*x509.RevocationLi
 
 func main() {
 	fmt.Println("Hello World")
+	done := make(<-chan bool)
 	js.Global().Set("verifyCertificateChain", verifyCertificateChain())
+	<-done
 }
