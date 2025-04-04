@@ -17,15 +17,11 @@ import "bootstrap";
 import "bootstrap/dist/css/bootstrap.min.css";
 import {
     AttributeTypeAndValue,
-    BasicOCSPResponse,
     Certificate,
     CertificateRevocationList,
     CRLDistributionPoints,
     ECPublicKey,
-    GeneralName,
-    InfoAccess,
-    OCSPRequest,
-    OCSPResponse
+    GeneralName
 } from "pkijs";
 
 interface McpAltNameAttribute {
@@ -102,10 +98,10 @@ caFileUploader.addEventListener("input", async () => {
     }
 });
 
-submitButton.addEventListener("click", async () => {
-    verifyCertificateChain(certs[0], certs[1], certs[2]).then(result => {
-        alert(result);
-    }, error => alert(error));
+submitButton.addEventListener("click", () => {
+    verifyCertificateChain(certs[0], certs[1], certs[2])
+      .then(result => alert(result))
+      .catch(error => alert(error));
 });
 
 contentCheckButton.addEventListener("click", () => {
@@ -117,28 +113,10 @@ contentCheckButton.addEventListener("click", () => {
     }
 });
 
-checkOCSPButton.addEventListener("click", async () => {
-    const parsedCerts: Array<Certificate> = certs.map(parseCertificate);
-
-    const ocspResponse = await getOCSP(parsedCerts[0], parsedCerts[1]);
-    const status = await ocspResponse.getCertificateStatus(parsedCerts[0], parsedCerts[1]);
-
-    let message: string;
-    switch (status.status) {
-        case 0:
-            message = "The certificate is valid.";
-            break;
-        case 1:
-            message = "The certificate has been revoked.";
-            break;
-        case 2:
-            message = "The revocation status of the certificate could not be determined.";
-            break;
-        default:
-            message = "Something went wrong while trying to get revocation status of the certificate.";
-            break;
-    }
-    alert(message);
+checkOCSPButton.addEventListener("click", () => {
+    verifyOcsp(certs[0], certs[1])
+      .then(result => alert(result))
+      .catch(error => alert(error));
 });
 
 crlButton.addEventListener("click", async () => {
@@ -177,23 +155,6 @@ function extractCerts(pemCerts: string): void {
         certs[i] = m[0];
         textAreas[i].value = certs[i];
     });
-}
-
-async function getOCSP(certificate: Certificate, issuerCertificate: Certificate): Promise<BasicOCSPResponse> {
-    const ocspReq: OCSPRequest = new OCSPRequest();
-
-    await ocspReq.createForCertificate(certificate, { hashAlgorithm: "SHA-384", issuerCertificate: issuerCertificate });
-    const ocsp = ocspReq.toSchema(true);
-    const tmp = certificate.extensions.find(e => e.extnID === "1.3.6.1.5.5.7.1.1").parsedValue as InfoAccess;
-    const ocspUrl = tmp.accessDescriptions[0].accessLocation.value as string;
-    const encodedOcsp = encodeURIComponent(window.btoa(String.fromCharCode(...new Uint8Array(ocsp.toBER()))));
-    const response = await fetch(`${ocspUrl}/${encodedOcsp}`, {
-        mode: "cors",
-        cache: "no-cache"
-    });
-    const rawOcspResponse = await (await response.blob()).arrayBuffer();
-    const ocspResponse = OCSPResponse.fromBER(rawOcspResponse);
-    return BasicOCSPResponse.fromBER(ocspResponse.responseBytes.response.getValue());
 }
 
 async function getCRL(certificate: Certificate): Promise<CertificateRevocationList> {

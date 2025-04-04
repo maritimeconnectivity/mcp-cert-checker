@@ -38,9 +38,10 @@ func verifyCertificateChain() js.Func {
 		subCaPem := args[1].String()
 		rootCaPem := args[2].String()
 
+		// required for handling JS Promise
 		handler := js.FuncOf(func(this js.Value, args []js.Value) any {
-			resolve := args[0]
-			reject := args[1]
+			resolve := args[0] // used to fulfill the promise
+			reject := args[1]  // used to reject the promise
 			errorConstructor := js.Global().Get("Error")
 
 			go func() {
@@ -132,30 +133,6 @@ func verifyCrl(cert *x509.Certificate, issuingCert *x509.Certificate, httpClient
 	return true
 }
 
-func verifyOcsp(cert *x509.Certificate, subCa *x509.Certificate, httpClient *http.Client) error {
-	ocspResp, err := checkOcsp(cert, subCa, httpClient)
-	if err != nil {
-		return err
-	}
-	if err := ocspResp.CheckSignatureFrom(subCa); err != nil {
-		return err
-	}
-	if ocspResp.Status == ocsp.Revoked {
-		return fmt.Errorf("certificate is revoked")
-	} else if ocspResp.Status == ocsp.Unknown {
-		return fmt.Errorf("certificate status is unknown")
-	}
-	return nil
-}
-
-func parseCertificate(pemCert string) (*x509.Certificate, error) {
-	block, _ := pem.Decode([]byte(pemCert))
-	if block == nil {
-		return nil, errors.New("invalid certificate")
-	}
-	return x509.ParseCertificate(block.Bytes)
-}
-
 func checkOcsp(cert *x509.Certificate, issuingCert *x509.Certificate, httpClient *http.Client) (*ocsp.Response, error) {
 	ocspUrl := cert.OCSPServer[0]
 	ocspReq, err := ocsp.CreateRequest(cert, issuingCert, nil)
@@ -181,7 +158,76 @@ func checkOcsp(cert *x509.Certificate, issuingCert *x509.Certificate, httpClient
 		return nil, fmt.Errorf("failed to close response body: %w", err)
 	}
 
-	return ocsp.ParseResponse(responseBody, issuingCert)
+	return ocsp.ParseResponse(responseBody, nil)
+}
+
+func verifyOcsp(cert *x509.Certificate, subCa *x509.Certificate, httpClient *http.Client) error {
+	ocspResp, err := checkOcsp(cert, subCa, httpClient)
+	if err != nil {
+		return err
+	}
+	if err := ocspResp.CheckSignatureFrom(subCa); err != nil {
+		return err
+	}
+	if ocspResp.Status == ocsp.Revoked {
+		return fmt.Errorf("certificate is revoked")
+	} else if ocspResp.Status == ocsp.Unknown {
+		return fmt.Errorf("certificate status is unknown")
+	}
+	return nil
+}
+
+func verifyOcspWrapper() js.Func {
+	return js.FuncOf(func(this js.Value, args []js.Value) any {
+		if len(args) != 2 {
+			return "Invalid no of arguments passed"
+		}
+		certPem := args[0].String()
+		subCaPem := args[1].String()
+
+		handler := js.FuncOf(func(this js.Value, args []js.Value) any {
+			resolve := args[0]
+			reject := args[1]
+			errorConstructor := js.Global().Get("Error")
+
+			go func() {
+				cert, err := parseCertificate(certPem)
+				if err != nil {
+					errorObject := errorConstructor.New("Certificate parsing failed")
+					reject.Invoke(errorObject)
+					return
+				}
+
+				subCa, err := parseCertificate(subCaPem)
+				if err != nil {
+					errorObject := errorConstructor.New("Intermediate certificate parsing failed")
+					reject.Invoke(errorObject)
+					return
+				}
+
+				if err = verifyOcsp(cert, subCa, http.DefaultClient); err != nil {
+					errorObject := errorConstructor.New(err.Error())
+					reject.Invoke(errorObject)
+					return
+				}
+
+				resolve.Invoke("OCSP verification successful")
+			}()
+
+			return nil
+		})
+
+		promiseConstructor := js.Global().Get("Promise")
+		return promiseConstructor.New(handler)
+	})
+}
+
+func parseCertificate(pemCert string) (*x509.Certificate, error) {
+	block, _ := pem.Decode([]byte(pemCert))
+	if block == nil {
+		return nil, errors.New("invalid certificate")
+	}
+	return x509.ParseCertificate(block.Bytes)
 }
 
 func getCrl(cert *x509.Certificate, httpClient *http.Client) (*x509.RevocationList, error) {
@@ -211,5 +257,6 @@ func main() {
 	fmt.Println("Hello World")
 	done := make(<-chan bool)
 	js.Global().Set("verifyCertificateChain", verifyCertificateChain())
+	js.Global().Set("verifyOcsp", verifyOcspWrapper())
 	<-done
 }

@@ -15,3 +15,4 @@
  */
 
 declare function verifyCertificateChain(cert: string, intermediateCert: string, rootCert: string): Promise<string>;
+declare function verifyOcsp(cert: string, intermediateCert: string): Promise<string>;
