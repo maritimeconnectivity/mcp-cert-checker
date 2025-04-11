@@ -91,16 +91,16 @@ func verifyCertificateChain() js.Func {
 					return
 				}
 
-				valid := verifyCrl(subCa, rootCa, httpClient)
-				if !valid {
-					errorObject := errorConstructor.New("Failed to verify intermediate certificate using CRL")
+				err = verifyCrl(subCa, rootCa, httpClient)
+				if err != nil {
+					errorObject := errorConstructor.New("Failed to verify intermediate certificate using CRL: " + err.Error())
 					reject.Invoke(errorObject)
 					return
 				}
 
-				valid = verifyCrl(rootCa, rootCa, httpClient)
-				if !valid {
-					errorObject := errorConstructor.New("Failed to verify root certificate using CRL")
+				err = verifyCrl(rootCa, rootCa, httpClient)
+				if err != nil {
+					errorObject := errorConstructor.New("Failed to verify root certificate using CRL: " + err.Error())
 					reject.Invoke(errorObject)
 					return
 				}
@@ -114,23 +114,6 @@ func verifyCertificateChain() js.Func {
 		promiseConstructor := js.Global().Get("Promise")
 		return promiseConstructor.New(handler)
 	})
-}
-
-func verifyCrl(cert *x509.Certificate, issuingCert *x509.Certificate, httpClient *http.Client) bool {
-	subCaCrl, err := getCrl(cert, httpClient)
-	if err != nil {
-		return false
-	}
-	if err := subCaCrl.CheckSignatureFrom(issuingCert); err != nil {
-		return false
-	}
-	now := time.Now().UTC()
-	for _, rev := range subCaCrl.RevokedCertificateEntries {
-		if (rev.SerialNumber.Cmp(cert.SerialNumber) == 0) && (rev.RevocationTime.Before(now)) {
-			return false
-		}
-	}
-	return true
 }
 
 func checkOcsp(cert *x509.Certificate, issuingCert *x509.Certificate, httpClient *http.Client) (*ocsp.Response, error) {
@@ -250,7 +233,74 @@ func getCrl(cert *x509.Certificate, httpClient *http.Client) (*x509.RevocationLi
 		return nil, fmt.Errorf("failed to close response body: %w", err)
 	}
 
-	return x509.ParseRevocationList(responseBody)
+	crl, _ := pem.Decode(responseBody)
+	if crl == nil {
+		return nil, fmt.Errorf("failed to PEM decode response body")
+	}
+
+	return x509.ParseRevocationList(crl.Bytes)
+}
+
+func verifyCrl(cert *x509.Certificate, issuingCert *x509.Certificate, httpClient *http.Client) error {
+	crl, err := getCrl(cert, httpClient)
+	if err != nil {
+		return fmt.Errorf("failed to get CRL: %w", err)
+	}
+	if err := crl.CheckSignatureFrom(issuingCert); err != nil {
+		return fmt.Errorf("failed to verify CRL: %w", err)
+	}
+	now := time.Now().UTC()
+	for _, rev := range crl.RevokedCertificateEntries {
+		if (rev.SerialNumber.Cmp(cert.SerialNumber) == 0) && (rev.RevocationTime.Before(now)) {
+			return fmt.Errorf("certificate is revoked")
+		}
+	}
+	return nil
+}
+
+func verifyCrlWrapper() js.Func {
+	return js.FuncOf(func(this js.Value, args []js.Value) any {
+		if len(args) != 2 {
+			return "Invalid no of arguments passed"
+		}
+		certPem := args[0].String()
+		subCaPem := args[1].String()
+
+		handler := js.FuncOf(func(this js.Value, args []js.Value) any {
+			resolve := args[0]
+			reject := args[1]
+			errorConstructor := js.Global().Get("Error")
+
+			go func() {
+				cert, err := parseCertificate(certPem)
+				if err != nil {
+					errorObject := errorConstructor.New("Certificate parsing failed")
+					reject.Invoke(errorObject)
+					return
+				}
+
+				subCa, err := parseCertificate(subCaPem)
+				if err != nil {
+					errorObject := errorConstructor.New("Intermediate certificate parsing failed")
+					reject.Invoke(errorObject)
+					return
+				}
+
+				if err := verifyCrl(cert, subCa, http.DefaultClient); err != nil {
+					errorObject := errorConstructor.New(err.Error())
+					reject.Invoke(errorObject)
+					return
+				}
+
+				resolve.Invoke("CRL verification successful")
+			}()
+
+			return nil
+		})
+
+		promiseConstructor := js.Global().Get("Promise")
+		return promiseConstructor.New(handler)
+	})
 }
 
 func main() {
@@ -258,5 +308,6 @@ func main() {
 	done := make(<-chan bool)
 	js.Global().Set("verifyCertificateChain", verifyCertificateChain())
 	js.Global().Set("verifyOcsp", verifyOcspWrapper())
+	js.Global().Set("verifyCrl", verifyCrlWrapper())
 	<-done
 }

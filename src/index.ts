@@ -15,14 +15,7 @@
  */
 import "bootstrap";
 import "bootstrap/dist/css/bootstrap.min.css";
-import {
-    AttributeTypeAndValue,
-    Certificate,
-    CertificateRevocationList,
-    CRLDistributionPoints,
-    ECPublicKey,
-    GeneralName
-} from "pkijs";
+import {AttributeTypeAndValue, Certificate, ECPublicKey, GeneralName} from "pkijs";
 
 interface McpAltNameAttribute {
     oid: string,
@@ -47,11 +40,11 @@ const clearButton: HTMLButtonElement = document.getElementById("clearBtn") as HT
 const crlButton: HTMLButtonElement = document.getElementById("crlBtn") as HTMLButtonElement;
 
 const textAreas: Array<HTMLTextAreaElement> =
-  [
-      document.getElementById("certTextArea") as HTMLTextAreaElement,
-      document.getElementById("subCaCertTextArea") as HTMLTextAreaElement,
-      document.getElementById("caCertTextArea") as HTMLTextAreaElement
-  ];
+    [
+        document.getElementById("certTextArea") as HTMLTextAreaElement,
+        document.getElementById("subCaCertTextArea") as HTMLTextAreaElement,
+        document.getElementById("caCertTextArea") as HTMLTextAreaElement
+    ];
 
 const tableContainer: HTMLDivElement = document.getElementById("tableContainer") as HTMLDivElement;
 
@@ -100,8 +93,8 @@ caFileUploader.addEventListener("input", async () => {
 
 submitButton.addEventListener("click", () => {
     verifyCertificateChain(certs[0], certs[1], certs[2])
-      .then(result => alert(result))
-      .catch(error => alert(error));
+        .then(result => alert(result))
+        .catch(error => alert(error));
 });
 
 contentCheckButton.addEventListener("click", () => {
@@ -115,23 +108,14 @@ contentCheckButton.addEventListener("click", () => {
 
 checkOCSPButton.addEventListener("click", () => {
     verifyOcsp(certs[0], certs[1])
-      .then(result => alert(result))
-      .catch(error => alert(error));
+        .then(result => alert(result))
+        .catch(error => alert(error));
 });
 
 crlButton.addEventListener("click", async () => {
-    const parsedCerts: Array<Certificate> = certs.map(parseCertificate);
-
-    const crl = await getCRL(parsedCerts[0]);
-    if (await crl.verify({ issuerCertificate: parsedCerts[1] })) {
-        if (crl.isCertificateRevoked(parsedCerts[0])) {
-            alert("The certificate has been revoked.");
-        } else {
-            alert("The certificate is valid.");
-        }
-    } else {
-        alert("The CRL could not be verified.");
-    }
+    verifyCrl(certs[0], certs[1])
+        .then(result => alert(result))
+        .catch(error => alert(error));
 });
 
 clearButton.addEventListener("click", () => {
@@ -155,19 +139,6 @@ function extractCerts(pemCerts: string): void {
         certs[i] = m[0];
         textAreas[i].value = certs[i];
     });
-}
-
-async function getCRL(certificate: Certificate): Promise<CertificateRevocationList> {
-    const crlExt = certificate.extensions.find(e => e.extnID === "2.5.29.31").parsedValue as CRLDistributionPoints;
-    const crlUrl = (crlExt.distributionPoints[0].distributionPoint as GeneralName[])[0].value;
-
-    const response = await fetch(crlUrl, {
-        mode: "cors",
-        cache: "no-cache"
-    });
-    const crlString = await response.text();
-    const crlAsn1 = parsePem(crlString);
-    return CertificateRevocationList.fromBER(crlAsn1);
 }
 
 function validateCertContent(cert: Certificate): void {
