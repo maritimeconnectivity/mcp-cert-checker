@@ -4,14 +4,13 @@
   "description": "A simple web based frontend for checking MCP certificates",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "build": "npm run build:go && webpack --mode=production --node-env=production",
-    "build:dev": "npm run build:go && webpack --mode=development",
-    "build:prod": "npm run build:go && webpack --mode=production --node-env=production",
+    "build": "webpack --mode=production --node-env=production",
+    "build:dev": "webpack --mode=development",
+    "build:prod": "webpack --mode=production --node-env=production",
     "build:go": "cd src/go && GOOS=js GOARCH=wasm go build -o ../main.wasm main.go",
     "watch": "webpack --watch",
-    "serve": "npm run build:go && webpack serve",
-    "clean:dist": "rimraf dist",
-    "install": "npm run build:go"
+    "serve": "webpack serve",
+    "clean:dist": "rimraf dist"
   },
   "author": "",
   "engines": {
