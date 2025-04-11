@@ -8,22 +8,23 @@ jobs:
   build:
     runs-on: ubuntu-latest
 
-    strategy:
-      matrix:
-        node-version: [16.x]
-    
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v4
     
-    - name: Use Node.js ${{ matrix.node-version }}
-      uses: actions/setup-node@v2.5.1
+    - uses: actions/setup-node@v4
       with:
-        node-version: ${{ matrix.node-version }}
+        node-version: 22.x
         cache: 'npm'
+
+    - uses: actions/setup-go@v5
+      with:
+        go-version: 1.24
+        cache-dependency-path: ./src/go/go.sum
 
     - name: Build
       run: |
         npm install
+        npm run build:go
         npm run build
 
     - name: Git Push
@@ -35,7 +36,7 @@ jobs:
         git checkout gh-pages
         mv dist/* .
         rm -rf dist/
-        git add index.html main.js*
+        git add index.html main.js* main.js.LICENSE.txt wasm_exec.js main.wasm
         if [[ -z $(git --no-pager diff HEAD) ]]; then exit 0; fi 
         git commit -m "New application build"
         git push
