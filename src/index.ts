@@ -15,9 +15,6 @@
  */
 import "bootstrap";
 import "bootstrap/dist/css/bootstrap.min.css";
-import { X509 } from "jsrsasign";
-import ASN1HEXParseResult = jsrsasign.ASN1HEXParseResult;
-import SubjectAltName = jsrsasign.KJUR.asn1.x509.SubjectAltName;
 
 interface McpAltNameAttribute {
     oid: string,
