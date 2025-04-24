@@ -25,6 +25,7 @@ import (
 	"golang.org/x/crypto/ocsp"
 	"io"
 	"net/http"
+	"pault.ag/go/othername"
 	"syscall/js"
 	"time"
 )
@@ -205,14 +206,6 @@ func verifyOcspWrapper() js.Func {
 	})
 }
 
-func parseCertificate(pemCert string) (*x509.Certificate, error) {
-	block, _ := pem.Decode([]byte(pemCert))
-	if block == nil {
-		return nil, errors.New("invalid certificate")
-	}
-	return x509.ParseCertificate(block.Bytes)
-}
-
 func getCrl(cert *x509.Certificate, httpClient *http.Client) (*x509.RevocationList, error) {
 	crlUrl := cert.CRLDistributionPoints[0]
 	crlReq, err := http.NewRequest(http.MethodGet, crlUrl, nil)
@@ -303,11 +296,95 @@ func verifyCrlWrapper() js.Func {
 	})
 }
 
+func parseCertificate(pemCert string) (*x509.Certificate, error) {
+	block, _ := pem.Decode([]byte(pemCert))
+	if block == nil {
+		return nil, errors.New("invalid certificate")
+	}
+	return x509.ParseCertificate(block.Bytes)
+}
+
+func parseCertificateWrapper() js.Func {
+	return js.FuncOf(func(this js.Value, args []js.Value) any {
+		if len(args) != 1 {
+			return "Invalid no of arguments passed"
+		}
+		pemCert := args[0].String()
+
+		handler := js.FuncOf(func(this js.Value, args []js.Value) any {
+			resolve := args[0]
+			reject := args[1]
+			errorConstructor := js.Global().Get("Error")
+
+			go func() {
+				block, _ := pem.Decode([]byte(pemCert))
+				if block == nil {
+					errorObject := errorConstructor.New("Certificate parsing failed")
+					reject.Invoke(errorObject)
+					return
+				}
+				cert, err := x509.ParseCertificate(block.Bytes)
+				if err != nil {
+					errorObject := errorConstructor.New("Certificate parsing failed")
+					reject.Invoke(errorObject)
+					return
+				}
+
+				certificate := Certificate{}
+
+				certificate.cn = cert.Subject.CommonName
+
+				rdns := cert.Subject.Names
+
+				uidOid := []int{0, 9, 2342, 19200300, 100, 1, 1}
+				emailUid := []int{1, 2, 840, 113549, 1, 9, 1}
+				for _, dn := range rdns {
+					if dn.Type.Equal(uidOid) {
+						if v, ok := dn.Value.(string); ok {
+							certificate.mcpMrn = v
+						}
+					} else if dn.Type.Equal(emailUid) {
+						if v, ok := dn.Value.(string); ok {
+							certificate.email = v
+						}
+					}
+				}
+
+				certificate.orgMcpMrn = cert.Subject.Organization[0]
+				certificate.country = cert.Subject.Country[0]
+
+				otherNames, err := othername.All(cert)
+				if err != nil {
+					errorObject := errorConstructor.New(err.Error())
+					reject.Invoke(errorObject)
+					return
+				}
+
+				fmt.Println("OtherNames:", otherNames)
+
+				//for _, otherName := range otherNames {
+				//	switch otherName.ID.String() {
+				//
+				//	}
+				//}
+
+				resolve.Invoke("Good")
+			}()
+
+			return nil
+		})
+
+		promiseConstructor := js.Global().Get("Promise")
+		return promiseConstructor.New(handler)
+	})
+}
+
 func main() {
 	fmt.Println("Hello World")
 	done := make(<-chan bool)
 	js.Global().Set("verifyCertificateChain", verifyCertificateChain())
 	js.Global().Set("verifyOcsp", verifyOcspWrapper())
 	js.Global().Set("verifyCrl", verifyCrlWrapper())
+	js.Global().Set("parseCertificate", parseCertificateWrapper())
 	<-done
 }

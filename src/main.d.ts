@@ -14,6 +14,29 @@
  * limitations under the License.
  */
 
+interface Certificate {
+    cn?: string,
+    mcpMrn?: string,
+    orgMcpMrn?: string,
+    email?: string,
+    country?: string,
+    flagState?: string,
+    callSign?: string,
+    imoNumber?: string,
+    mmsiNumber?: string,
+    aisType?: string,
+    portOfRegister?: string,
+    shipMrn?: string,
+    altNameMrn?: string,
+    permissions?: string,
+    subMrn?: string,
+    url?: string,
+}
+
 declare function verifyCertificateChain(cert: string, intermediateCert: string, rootCert: string): Promise<string>;
+
 declare function verifyOcsp(cert: string, intermediateCert: string): Promise<string>;
+
 declare function verifyCrl(cert: string, intermediateCert: string): Promise<string>;
+
+declare function parseCertificate(cert: string): Promise<Certificate>;

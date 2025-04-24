@@ -1,2 +1,7 @@
 golang.org/x/crypto v0.37.0 h1:kJNSjF/Xp7kU0iB2Z+9viTPMW4EqqsrywMXLJOOsXSE=
 golang.org/x/crypto v0.37.0/go.mod h1:vg+k43peMZ0pUMhYmVAWysMK35e6ioLh3wB8ZCAfbVc=
+pault.ag/go/fasc v0.0.0-20190505145209-c337c3c0bbf0/go.mod h1:ZVD6UhO2Ww4DGiNTW0cgpFlE820wDl2aMcTlprz7V2E=
+pault.ag/go/fasc v0.1.1 h1:u5oB8JjGEG7Fg2V5m3EInffesSpRlYcHZ5XgQLQd/dE=
+pault.ag/go/fasc v0.1.1/go.mod h1:H58oQKhTVFwt/bHPxCuQq3Djjbc2/evvDNJ7dfFuMBs=
+pault.ag/go/othername v0.1.1 h1:Nzcw26JIoQav9BexFiOvv89hZmCXc0CoG9DMDI2yjM0=
+pault.ag/go/othername v0.1.1/go.mod h1:XlKBAYprpqiFECF9vASFkZr4p3g3KWq+fB0OohgigKY=
