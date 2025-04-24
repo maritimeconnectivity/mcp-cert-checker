@@ -16,6 +16,7 @@ const config = {
   devServer: {
     open: true,
     host: "localhost",
+    watchFiles: ["src/**/*.ts", "src/**/*.wasm"]
   },
   plugins: [
     new HtmlWebpackPlugin({

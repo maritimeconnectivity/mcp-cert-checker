@@ -22,10 +22,14 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
+	"golang.org/x/crypto/cryptobyte"
+	"golang.org/x/crypto/cryptobyte/asn1"
 	"golang.org/x/crypto/ocsp"
 	"io"
+	"math/big"
 	"net/http"
-	"pault.ag/go/othername"
+	"strconv"
+	"strings"
 	"syscall/js"
 	"time"
 )
@@ -353,20 +357,45 @@ func parseCertificateWrapper() js.Func {
 				certificate.orgMcpMrn = cert.Subject.Organization[0]
 				certificate.country = cert.Subject.Country[0]
 
-				otherNames, err := othername.All(cert)
-				if err != nil {
-					errorObject := errorConstructor.New(err.Error())
-					reject.Invoke(errorObject)
-					return
+				sanOid := []int{2, 5, 29, 17}
+				var rawSan []byte
+				for _, ext := range cert.Extensions {
+					if ext.Id.Equal(sanOid) {
+						rawSan = ext.Value
+						break
+					}
 				}
 
-				fmt.Println("OtherNames:", otherNames)
+				if len(rawSan) > 0 {
+					san := cryptobyte.String(rawSan)
 
-				//for _, otherName := range otherNames {
-				//	switch otherName.ID.String() {
-				//
-				//	}
-				//}
+					err = forEachSAN(san, func(tag int, data []byte) error {
+						switch tag {
+						case 0:
+							fmt.Printf("OtherName: %x\n", data)
+						default:
+							on := cryptobyte.String(data)
+							var oid cryptobyte.String
+							on.ReadASN1(&oid, asn1.OBJECT_IDENTIFIER)
+							fmt.Printf("%x\n", oid)
+
+							objectIdentifier := parseOid(oid)
+
+							fmt.Println("OID:", objectIdentifier)
+							var str cryptobyte.String
+							on.ReadASN1(&str, asn1.UTF8String)
+							str.ReadASN1(&str, asn1.UTF8String)
+							fmt.Printf("String value: %s\n", string(str))
+
+						}
+						return nil
+					})
+					if err != nil {
+						errorObject := errorConstructor.New(err.Error())
+						reject.Invoke(errorObject)
+						return
+					}
+				}
 
 				resolve.Invoke("Good")
 			}()
@@ -377,6 +406,51 @@ func parseCertificateWrapper() js.Func {
 		promiseConstructor := js.Global().Get("Promise")
 		return promiseConstructor.New(handler)
 	})
+}
+
+// Copied from x509.forEachSAN
+func forEachSAN(der cryptobyte.String, callback func(tag int, data []byte) error) error {
+	if !der.ReadASN1(&der, asn1.SEQUENCE) {
+		return errors.New("x509: invalid subject alternative names")
+	}
+	for !der.Empty() {
+		var san cryptobyte.String
+		var tag asn1.Tag
+		if !der.ReadAnyASN1(&san, &tag) {
+			return errors.New("x509: invalid subject alternative name")
+		}
+		if err := callback(int(tag^0x80), san); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func parseOid(oid cryptobyte.String) string {
+	var sb strings.Builder
+
+	firstByte := int64(oid[0])
+	sb.WriteString(strconv.FormatInt(firstByte/40, 10))
+	sb.WriteRune('.')
+	sb.WriteString(strconv.FormatInt(firstByte%40, 10))
+
+	remaining := oid[1:]
+
+	value := big.NewInt(0)
+	for i := 0; i < len(remaining); i++ {
+		value.Lsh(value, 7)
+		tmp := big.NewInt(0)
+		value.Or(value, tmp.And(big.NewInt(int64(remaining[i])), big.NewInt(0x7f)))
+
+		if remaining[i]&0x80 == 0 {
+			sb.WriteRune('.')
+			sb.WriteString(value.String())
+			value = big.NewInt(0)
+		}
+	}
+
+	return sb.String()
 }
 
 func main() {
