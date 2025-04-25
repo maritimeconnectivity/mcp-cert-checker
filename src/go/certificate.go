@@ -17,20 +17,23 @@
 package main
 
 type Certificate struct {
-	cn             string
-	mcpMrn         string
-	orgMcpMrn      string
-	email          string
-	country        string
-	flagState      string
-	callSign       string
-	imoNumber      string
-	mmsiNumber     string
-	aisType        string
-	portOfRegister string
-	shipMrn        string
-	mrn            string
-	permissions    string
-	alternateMrn   string
-	url            string
+	cn                string
+	mcpMrn            string
+	orgMcpMrn         string
+	email             string
+	country           string
+	flagState         string
+	callSign          string
+	imoNumber         string
+	mmsiNumber        string
+	aisType           string
+	portOfRegister    string
+	shipMrn           string
+	mrn               string
+	permissions       string
+	alternateMrn      string
+	url               string
+	publicKeyAlgoName string
+	publicKeyLength   int
+	signatureAlgoName string
 }

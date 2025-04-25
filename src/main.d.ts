@@ -31,6 +31,9 @@ interface Certificate {
     permissions?: string,
     alternateMrn?: string,
     url?: string,
+    publicKeyAlgoName?: string,
+    publicKeyLength?: number,
+    signatureAlgoName?: string,
 }
 
 declare function verifyCertificateChain(cert: string, intermediateCert: string, rootCert: string): Promise<string>;

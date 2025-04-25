@@ -18,6 +18,7 @@ package main
 
 import (
 	"bytes"
+	"crypto/ecdsa"
 	"crypto/x509"
 	"encoding/pem"
 	"errors"
@@ -425,23 +426,37 @@ func parseCertificateWrapper() js.Func {
 					}
 				}
 
+				certificate.publicKeyAlgoName = cert.PublicKeyAlgorithm.String()
+
+				pubKey := cert.PublicKey
+
+				switch pubKey.(type) {
+				case *ecdsa.PublicKey:
+					certificate.publicKeyLength = pubKey.(*ecdsa.PublicKey).Params().BitSize
+				}
+
+				certificate.signatureAlgoName = cert.SignatureAlgorithm.String()
+
 				ret := map[string]any{
-					"cn":             certificate.cn,
-					"mcpMrn":         certificate.mcpMrn,
-					"orgMcpMrn":      certificate.orgMcpMrn,
-					"email":          certificate.email,
-					"country":        certificate.country,
-					"flagState":      certificate.flagState,
-					"callSign":       certificate.callSign,
-					"imoNumber":      certificate.imoNumber,
-					"mmsiNumber":     certificate.mmsiNumber,
-					"aisType":        certificate.aisType,
-					"portOfRegister": certificate.portOfRegister,
-					"shipMrn":        certificate.shipMrn,
-					"mrn":            certificate.mrn,
-					"permissions":    certificate.permissions,
-					"alternateMrn":   certificate.alternateMrn,
-					"url":            certificate.url,
+					"cn":                certificate.cn,
+					"mcpMrn":            certificate.mcpMrn,
+					"orgMcpMrn":         certificate.orgMcpMrn,
+					"email":             certificate.email,
+					"country":           certificate.country,
+					"flagState":         certificate.flagState,
+					"callSign":          certificate.callSign,
+					"imoNumber":         certificate.imoNumber,
+					"mmsiNumber":        certificate.mmsiNumber,
+					"aisType":           certificate.aisType,
+					"portOfRegister":    certificate.portOfRegister,
+					"shipMrn":           certificate.shipMrn,
+					"mrn":               certificate.mrn,
+					"permissions":       certificate.permissions,
+					"alternateMrn":      certificate.alternateMrn,
+					"url":               certificate.url,
+					"publicKeyAlgoName": certificate.publicKeyAlgoName,
+					"publicKeyLength":   certificate.publicKeyLength,
+					"signatureAlgoName": certificate.signatureAlgoName,
 				}
 
 				resolve.Invoke(js.ValueOf(ret))

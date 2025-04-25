@@ -292,6 +292,20 @@ function validateCertContent(certificate: Certificate): void {
         }
     }
 
+    if (certificate.publicKeyAlgoName !== "ECDSA") {
+        alert("The certificate is not using an MCC endorsed public key algorithm");
+    }
+
+    const pubKeyLength = certificate.publicKeyLength;
+    if (pubKeyLength !== 256 && pubKeyLength !== 384) {
+        alert("The certificate is not using an MCC endorsed public key length");
+    }
+
+    const signatureAlgorithm = certificate.signatureAlgoName;
+    if ((pubKeyLength == 256 && signatureAlgorithm !== "ECDSA-SHA256") || (pubKeyLength == 384 && signatureAlgorithm !== "ECDSA-SHA384")) {
+        alert("The certificate is not using an MCC endorsed signature algorithm");
+    }
+
     // const pubKeyInfo = certificate.subjectPublicKeyInfo;
     //
     // if ((pubKeyInfo.algorithm.algorithmId !== "1.2.840.10045.2.1") || (((pubKeyInfo.parsedKey as ECPublicKey).namedCurve !== "P-384") && ((pubKeyInfo.parsedKey as ECPublicKey).namedCurve !== "P-256")))
@@ -311,7 +325,7 @@ function isValidMcpMRN(mrn: string): boolean {
 function isValidURL(url: string): boolean {
     try {
         new URL(url);
-    } catch (e) {
+    } catch {
         return false;
     }
     return true;
