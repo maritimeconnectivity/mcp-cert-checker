@@ -438,12 +438,12 @@ func parseOid(oid cryptobyte.String) string {
 	remaining := oid[1:]
 
 	value := big.NewInt(0)
-	for i := 0; i < len(remaining); i++ {
+	for _, b := range remaining {
 		value.Lsh(value, 7)
 		tmp := big.NewInt(0)
-		value.Or(value, tmp.And(big.NewInt(int64(remaining[i])), big.NewInt(0x7f)))
+		value.Or(value, tmp.And(big.NewInt(int64(b)), big.NewInt(0x7f)))
 
-		if remaining[i]&0x80 == 0 {
+		if b&0x80 == 0 {
 			sb.WriteRune('.')
 			sb.WriteString(value.String())
 			value = big.NewInt(0)
