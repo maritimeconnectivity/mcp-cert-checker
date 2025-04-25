@@ -335,13 +335,7 @@ func parseCertificateWrapper() js.Func {
 			errorConstructor := js.Global().Get("Error")
 
 			go func() {
-				block, _ := pem.Decode([]byte(pemCert))
-				if block == nil {
-					errorObject := errorConstructor.New("Certificate parsing failed")
-					reject.Invoke(errorObject)
-					return
-				}
-				cert, err := x509.ParseCertificate(block.Bytes)
+				cert, err := parseCertificate(pemCert)
 				if err != nil {
 					errorObject := errorConstructor.New("Certificate parsing failed")
 					reject.Invoke(errorObject)
