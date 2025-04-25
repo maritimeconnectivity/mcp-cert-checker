@@ -34,6 +34,20 @@ import (
 	"time"
 )
 
+const (
+	flagState      = "2.25.323100633285601570573910217875371967771"
+	callSign       = "2.25.208070283325144527098121348946972755227"
+	imoNumber      = "2.25.291283622413876360871493815653100799259"
+	mmsiNumber     = "2.25.328433707816814908768060331477217690907"
+	aisType        = "2.25.107857171638679641902842130101018412315"
+	portOfRegister = "2.25.285632790821948647314354670918887798603"
+	shipMrn        = "2.25.268095117363717005222833833642941669792"
+	mrn            = "2.25.271477598449775373676560215839310464283"
+	permissions    = "2.25.174437629172304915481663724171734402331"
+	alternateMrn   = "2.25.133833610339604538603087183843785923701"
+	url            = "2.25.245076023612240385163414144226581328607"
+)
+
 func verifyCertificateChain() js.Func {
 	return js.FuncOf(func(this js.Value, args []js.Value) any {
 		if len(args) != 3 {
@@ -369,24 +383,44 @@ func parseCertificateWrapper() js.Func {
 				if len(rawSan) > 0 {
 					san := cryptobyte.String(rawSan)
 
+					// Here we just assume that all elements in SAN are OtherNames.
+					// Everything that is not, we just skip
 					err = forEachSAN(san, func(tag int, data []byte) error {
-						switch tag {
-						case 0:
-							fmt.Printf("OtherName: %x\n", data)
-						default:
-							on := cryptobyte.String(data)
-							var oid cryptobyte.String
-							on.ReadASN1(&oid, asn1.OBJECT_IDENTIFIER)
-							fmt.Printf("%x\n", oid)
+						on := cryptobyte.String(data)
+						var oid cryptobyte.String
+						if !on.ReadASN1(&oid, asn1.OBJECT_IDENTIFIER) {
+							return nil
+						}
+						objectIdentifier := parseOid(oid)
 
-							objectIdentifier := parseOid(oid)
+						var str cryptobyte.String
+						on.ReadASN1(&str, asn1.UTF8String)
+						str.ReadASN1(&str, asn1.UTF8String)
+						value := string(str)
 
-							fmt.Println("OID:", objectIdentifier)
-							var str cryptobyte.String
-							on.ReadASN1(&str, asn1.UTF8String)
-							str.ReadASN1(&str, asn1.UTF8String)
-							fmt.Printf("String value: %s\n", string(str))
-
+						switch objectIdentifier {
+						case flagState:
+							certificate.flagState = value
+						case callSign:
+							certificate.callSign = value
+						case imoNumber:
+							certificate.imoNumber = value
+						case mmsiNumber:
+							certificate.mmsiNumber = value
+						case aisType:
+							certificate.aisType = value
+						case portOfRegister:
+							certificate.portOfRegister = value
+						case shipMrn:
+							certificate.shipMrn = value
+						case mrn:
+							certificate.mrn = value
+						case permissions:
+							certificate.permissions = value
+						case alternateMrn:
+							certificate.mrn = value
+						case url:
+							certificate.url = value
 						}
 						return nil
 					})
@@ -397,7 +431,26 @@ func parseCertificateWrapper() js.Func {
 					}
 				}
 
-				resolve.Invoke("Good")
+				ret := map[string]any{
+					"cn":             certificate.cn,
+					"mcpMrn":         certificate.mcpMrn,
+					"orgMcpMrn":      certificate.orgMcpMrn,
+					"email":          certificate.email,
+					"country":        certificate.country,
+					"flagState":      certificate.flagState,
+					"callSign":       certificate.callSign,
+					"imoNumber":      certificate.imoNumber,
+					"mmsiNumber":     certificate.mmsiNumber,
+					"aisType":        certificate.aisType,
+					"portOfRegister": certificate.portOfRegister,
+					"shipMrn":        certificate.shipMrn,
+					"mrn":            certificate.mrn,
+					"permissions":    certificate.permissions,
+					"alternateMrn":   certificate.alternateMrn,
+					"url":            certificate.url,
+				}
+
+				resolve.Invoke(js.ValueOf(ret))
 			}()
 
 			return nil

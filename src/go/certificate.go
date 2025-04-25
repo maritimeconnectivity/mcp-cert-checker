@@ -29,8 +29,8 @@ type Certificate struct {
 	aisType        string
 	portOfRegister string
 	shipMrn        string
-	altNameMrn     string
+	mrn            string
 	permissions    string
-	subMrn         string
+	alternateMrn   string
 	url            string
 }
