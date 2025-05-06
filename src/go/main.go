@@ -516,7 +516,7 @@ func parseOid(oid cryptobyte.String) string {
 }
 
 func main() {
-	fmt.Println("Hello World")
+	fmt.Println("WASM loaded")
 	done := make(<-chan bool)
 	js.Global().Set("verifyCertificateChain", verifyCertificateChain())
 	js.Global().Set("verifyOcsp", verifyOcspWrapper())
