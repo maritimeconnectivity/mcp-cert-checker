@@ -306,11 +306,6 @@ function validateCertContent(certificate: Certificate): void {
         alert("The certificate is not using an MCC endorsed signature algorithm");
     }
 
-    // const pubKeyInfo = certificate.subjectPublicKeyInfo;
-    //
-    // if ((pubKeyInfo.algorithm.algorithmId !== "1.2.840.10045.2.1") || (((pubKeyInfo.parsedKey as ECPublicKey).namedCurve !== "P-384") && ((pubKeyInfo.parsedKey as ECPublicKey).namedCurve !== "P-256")))
-    //     alert("The certificate is not using an MCC endorsed public key algorithm");
-
     tableContainer.hidden = false;
 }
 
