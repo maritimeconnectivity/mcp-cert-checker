@@ -23,9 +23,6 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
-	"golang.org/x/crypto/cryptobyte"
-	"golang.org/x/crypto/cryptobyte/asn1"
-	"golang.org/x/crypto/ocsp"
 	"io"
 	"math/big"
 	"net/http"
@@ -33,6 +30,10 @@ import (
 	"strings"
 	"syscall/js"
 	"time"
+
+	"golang.org/x/crypto/cryptobyte"
+	"golang.org/x/crypto/cryptobyte/asn1"
+	"golang.org/x/crypto/ocsp"
 )
 
 const (
