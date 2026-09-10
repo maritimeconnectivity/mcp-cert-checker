@@ -154,12 +154,17 @@ func checkOcsp(cert *x509.Certificate, issuingCert *x509.Certificate, httpClient
 	if err != nil {
 		return nil, fmt.Errorf("failed to send request: %w", err)
 	}
+
+	defer func(Body io.ReadCloser) {
+		err := Body.Close()
+		if err != nil {
+			fmt.Printf("Failed to close response body: %v", err)
+		}
+	}(response.Body)
+
 	responseBody, err := io.ReadAll(response.Body)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read response body: %w", err)
-	}
-	if err := response.Body.Close(); err != nil {
-		return nil, fmt.Errorf("failed to close response body: %w", err)
 	}
 
 	return ocsp.ParseResponse(responseBody, nil)
@@ -238,12 +243,17 @@ func getCrl(cert *x509.Certificate, httpClient *http.Client) (*x509.RevocationLi
 	if err != nil {
 		return nil, fmt.Errorf("failed to send request: %w", err)
 	}
+
+	defer func(Body io.ReadCloser) {
+		err := Body.Close()
+		if err != nil {
+			fmt.Printf("Failed to close response body: %v", err)
+		}
+	}(response.Body)
+
 	responseBody, err := io.ReadAll(response.Body)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read response body: %w", err)
-	}
-	if err := response.Body.Close(); err != nil {
-		return nil, fmt.Errorf("failed to close response body: %w", err)
 	}
 
 	crl, _ := pem.Decode(responseBody)
